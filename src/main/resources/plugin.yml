@@ -1,0 +1,8 @@
+name: Alias
+main: me.trouper.alias.Alias
+version: 1.0.0
+authors: [ obvWolf ]
+api-version: 1.21
+commands:
+  example_command:
+    description: Hello world command
