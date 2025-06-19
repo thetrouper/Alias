@@ -16,9 +16,8 @@ public class TaskManager implements Main {
         if (closed) return -1;
 
         int taskId = Bukkit.getScheduler().runTaskLater(main.getPlugin(), () -> {
-            if (!closed && tasks.containsKey(taskId)) {
+            if (!closed) {
                 task.run();
-                tasks.remove(taskId);
             }
         }, delay).getTaskId();
 

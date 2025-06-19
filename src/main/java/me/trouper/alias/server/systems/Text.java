@@ -442,7 +442,7 @@ public class Text implements Main {
                 TextColor.color(0xFFB0C1),  // Light pink for default args
                 TextColor.color(0xB6F5B6),  // Light green for second arg
                 TextColor.color(0xB0C1FF),  // Light blue for third arg
-                new SoundData(Sound.UI_HUD_BUBBLE_POP, 2)
+                new SoundData(Sound.UI_TOAST_IN, 2)
         );
 
         private final TextColor mainText;

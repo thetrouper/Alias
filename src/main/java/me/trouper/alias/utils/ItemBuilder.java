@@ -10,7 +10,6 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.components.CustomModelDataComponent;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,7 +19,6 @@ import java.util.function.Function;
 public class ItemBuilder {
     private ItemStack stack;
     private ItemMeta meta;
-    private CustomModelDataComponent modelData;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     public ItemBuilder() {
@@ -186,16 +184,6 @@ public class ItemBuilder {
         return unbreakable(true);
     }
 
-    public ItemBuilder customModelData(CustomModelDataComponent data) {
-        this.modelData = data;
-        return this;
-    }
-
-    public ItemBuilder clearCustomModelData() {
-        this.modelData = null;
-        return this;
-    }
-
     public ItemBuilder modifyStack(Function<ItemStack, ItemStack> modifier) {
         this.stack = modifier.apply(this.build());
         this.meta = this.stack.getItemMeta();
@@ -215,7 +203,6 @@ public class ItemBuilder {
     }
 
     public ItemStack build() {
-        this.meta.setCustomModelDataComponent(this.modelData);
         this.stack.setItemMeta(this.meta);
         return this.stack.clone();
     }
