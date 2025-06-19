@@ -5,8 +5,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.event.Listener;
 
 public interface QuickListener extends Listener, Main {
-    default QuickListener registerEvents() {
-        Bukkit.getPluginManager().registerEvents(this, this.getPlugin());
+    default QuickListener register() {
+        Bukkit.getPluginManager().registerEvents(this,this.getPlugin());
         return this;
     }
 }

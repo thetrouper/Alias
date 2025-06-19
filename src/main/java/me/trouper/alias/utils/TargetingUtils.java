@@ -4,6 +4,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -225,8 +226,8 @@ public class TargetingUtils {
      * @return An {@link Optional} containing the {@link LivingEntity} closest to the aim vector,
      * or an empty Optional if no suitable entity is found or world is null.
      */
-    public static Optional<LivingEntity> getLivingEntityClosestToVector(Location originEyeLocation, Vector direction, double maxDistance, double maxAngleRadians) {
-        return getLivingEntityClosestToVector(originEyeLocation, direction, maxDistance, maxAngleRadians, entity -> true);
+    public static Optional<LivingEntity> livingClosestAngle(Location originEyeLocation, Vector direction, double maxDistance, double maxAngleRadians) {
+        return livingClosestAngle(originEyeLocation, direction, maxDistance, maxAngleRadians, entity -> true);
     }
 
     /**
@@ -242,7 +243,7 @@ public class TargetingUtils {
      * @return An {@link Optional} containing the {@link LivingEntity} closest to the aim vector and matching the filter,
      * or an empty Optional if no suitable entity is found or world is null.
      */
-    public static Optional<LivingEntity> getLivingEntityClosestToVector(Location originEyeLocation, Vector direction, double maxDistance, double maxAngleRadians, Predicate<LivingEntity> filter) {
+    public static Optional<LivingEntity> livingClosestAngle(Location originEyeLocation, Vector direction, double maxDistance, double maxAngleRadians, Predicate<LivingEntity> filter) {
         if (originEyeLocation == null || originEyeLocation.getWorld() == null || direction == null || filter == null) {
             return Optional.empty();
         }
@@ -278,5 +279,16 @@ public class TargetingUtils {
             }
         }
         return Optional.ofNullable(bestTarget);
+    }
+
+    /**
+     * Returns all living entities inside the bounding box.
+     * @param w World to check.
+     * @param box Box inside the world, entities must be colliding with it.
+     * @param filter A predicate applied to each living entity. Return true to accept.
+     * @return A list of living entities colliding with the box.
+     */
+    public static List<LivingEntity> livingInBound(World w, BoundingBox box, Predicate<LivingEntity> filter) {
+        return w.getNearbyEntities(box).stream().filter(entity -> entity instanceof LivingEntity liv && filter.test(liv)).map(entity -> (LivingEntity) entity).toList();
     }
 }

@@ -1,46 +1,46 @@
 package me.trouper.alias;
 
-import me.trouper.alias.server.Manager;
-import me.trouper.alias.utils.visual.BlockDisplayRaytracer;
-import org.bukkit.NamespacedKey;
+import me.trouper.alias.data.Common;
+import me.trouper.alias.server.AutoRegistrar;
+import me.trouper.alias.server.commands.QuickCommand;
+import me.trouper.alias.server.events.GuiListener;
+import me.trouper.alias.server.events.QuickListener;
+import me.trouper.alias.server.systems.AbstractWand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class Alias extends JavaPlugin {
 
-    private static Alias instance;
-    private Manager manager;
+    private static Class<? extends JavaPlugin> host;
+    private static AutoRegistrar autoRegistrar;
+    private static Common common;
+    private static boolean enabled;
 
-    @Override
-    public void onLoad() {
-        getLogger().info("Instantiating Plugin");
-        instance = this;
+
+    public static synchronized void register(JavaPlugin plugin, Common common) {
+        if (plugin == null || enabled) return;
+        Alias.host = plugin.getClass();
+        Alias.common = common;
+
+        new GuiListener().register();
+        autoRegistrar = new AutoRegistrar(plugin);
+        autoRegistrar.loadAll(common.getPackageName());
+
+        enabled = true;
     }
 
-    @Override
-    public void onEnable() {
-        getLogger().info("Instantiating Manager");
-        manager = new Manager();
-
-        getLogger().info("Initializing Manager");
-        manager.init();
-
-        getLogger().info("Successfully enabled TrimAlias.");
+    public static Class<? extends JavaPlugin> getHost() {
+        return host;
     }
 
-    @Override
-    public void onDisable() {
-        getLogger().info("Saved all IO files.");
-        manager.io.saveAll();
-        getLogger().info("Saved all IO files.");
+    public static AutoRegistrar getAutoRegistrar() {
+        return autoRegistrar;
     }
 
-    public static me.trouper.alias.Alias getInstance() {
-        return instance;
+    public static Common getCommon() {
+        return common;
     }
-    public NamespacedKey getNameSpace() {
-        return new NamespacedKey(getInstance(),"_alias");
-    }
-    public Manager getManager() {
-        return manager;
+
+    public static void updateCommon(Common common) {
+        Alias.common = common;
     }
 }
