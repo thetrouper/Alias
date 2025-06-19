@@ -35,4 +35,8 @@ public class TaskManager implements Main {
         tasks.keySet().forEach(Bukkit.getScheduler()::cancelTask);
         tasks.clear();
     }
+
+    public boolean isClosed() {
+        return closed;
+    }
 }

@@ -2,6 +2,7 @@ package me.trouper.alias.server.systems.world;
 
 import me.trouper.alias.server.Main;
 import me.trouper.alias.server.systems.Verbose;
+import me.trouper.alias.server.systems.TaskManager;
 import me.trouper.alias.server.systems.burning.BlockBurner;
 import me.trouper.alias.server.systems.burning.BurnOptions;
 import org.bukkit.*;
@@ -64,19 +65,21 @@ public class ExplosionUtils implements Main {
     public static class ExplosionResult {
         private final Map<Block, BlockState> originalStates = new HashMap<>();
         private final Map<Block, ItemStack[]> originalInventories = new HashMap<>();
-        private final List<Integer> scheduledTaskIds = new ArrayList<>();
+        private final TaskManager taskManager;
         private final BlockBurner burner;
+
+        public ExplosionResult(TaskManager taskManager) {
+            this.taskManager = taskManager;
+            this.burner = new BlockBurner(new BurnOptions(), taskManager);
+        }
 
         public ExplosionResult(BlockBurner burner) {
             this.burner = burner;
+            this.taskManager = burner.getTaskManager();
         }
 
         public void cleanup() {
-            if (burner != null) {
-                burner.close();
-            }
-
-            scheduledTaskIds.forEach(task -> Bukkit.getScheduler().cancelTask(task));
+            taskManager.close();
         }
 
         void recordSnapshot(Block block) {
@@ -88,17 +91,11 @@ public class ExplosionUtils implements Main {
             }
         }
 
-        void addScheduledTask(int taskId) {
-            scheduledTaskIds.add(taskId);
-        }
-
         public void restore() {
-            for (int taskId : scheduledTaskIds) {
-                Bukkit.getScheduler().cancelTask(taskId);
-            }
-
+            // First cleanup all tasks
             cleanup();
 
+            // Then restore blocks
             for (Map.Entry<Block, BlockState> entry : originalStates.entrySet()) {
                 Block block = entry.getKey();
                 BlockState snapshot = entry.getValue();
@@ -115,6 +112,7 @@ public class ExplosionUtils implements Main {
         }
 
         public BlockBurner getBurner() { return burner; }
+        public TaskManager getTaskManager() { return taskManager; }
 
         public Map<Block, BlockState> getOriginalStates() {
             return originalStates;
@@ -122,10 +120,6 @@ public class ExplosionUtils implements Main {
 
         public Map<Block, ItemStack[]> getOriginalInventories() {
             return originalInventories;
-        }
-
-        public List<Integer> getScheduledTaskIds() {
-            return scheduledTaskIds;
         }
     }
 
@@ -135,11 +129,13 @@ public class ExplosionUtils implements Main {
 
         Map<Block, Double> affectedBlocks = getBlocksInRadius(center, options.getMaxBurnRadius());
 
-        ExplosionResult result = new ExplosionResult(new BlockBurner(options.getBurnOptions()));
+        // Create shared task manager for this explosion
+        TaskManager sharedTaskManager = new TaskManager();
+        BlockBurner burner = new BlockBurner(options.getBurnOptions(), sharedTaskManager);
+        ExplosionResult result = new ExplosionResult(burner);
 
         for (Block block : affectedBlocks.keySet()) {
             if (block.getType().isAir()) continue;
-
             result.recordSnapshot(block);
         }
 
@@ -149,10 +145,8 @@ public class ExplosionUtils implements Main {
 
         categorizeBlocks(affectedBlocks, options, blocksToDestroy, blocksToBurn, blocksHeatMap);
 
-        BlockBurner burner = new BlockBurner(options.getBurnOptions());
-
-        scheduleDestruction(blocksToDestroy, options,result);
-        scheduleBurning(blocksToBurn, blocksHeatMap, burner, center, options,result);
+        scheduleDestruction(blocksToDestroy, options, sharedTaskManager);
+        scheduleBurning(blocksToBurn, blocksHeatMap, burner, center, options, sharedTaskManager);
 
         if (options.isCreateParticles() || options.isPlaySound()) createExplosionEffects(center, options);
 
@@ -229,12 +223,12 @@ public class ExplosionUtils implements Main {
         return (float) (options.getMinHeat() + heatRange * heatFactor);
     }
 
-    private static void scheduleDestruction(Set<Block> blocksToDestroy, ExplosionOptions options, ExplosionResult result) {
+    private static void scheduleDestruction(Set<Block> blocksToDestroy, ExplosionOptions options, TaskManager taskManager) {
         if (blocksToDestroy.isEmpty()) return;
 
         long destructionDelayTicks = (long) (options.getDestructionDelay() * 20);
 
-        int outerTask = Bukkit.getScheduler().runTaskLater(main.getPlugin(),()->{
+        taskManager.scheduleTask(() -> {
             List<Block> blockList = new ArrayList<>(blocksToDestroy);
             Collections.shuffle(blockList);
 
@@ -246,29 +240,26 @@ public class ExplosionUtils implements Main {
 
                 if (startIndex >= blockList.size()) break;
 
-                int innerTask = Bukkit.getScheduler().runTaskLater(main.getPlugin(),()->{
+                taskManager.scheduleTask(() -> {
                     for (int i = startIndex; i < endIndex; i++) {
                         Block block = blockList.get(i);
                         if (!block.getType().isAir()) {
                             block.setType(Material.AIR);
                         }
                     }
-                },wave * 2).getTaskId();
-
-                result.addScheduledTask(innerTask);
+                }, wave * 2);
             }
-        },destructionDelayTicks).getTaskId();
-
-        result.addScheduledTask(outerTask);
+        }, destructionDelayTicks);
     }
 
     private static void scheduleBurning(Set<Block> blocksToMaybeBurn, Map<Block, Float> blocksHeatMap,
                                         BlockBurner burner, Location center, ExplosionOptions options,
-                                        ExplosionResult result) {
+                                        TaskManager taskManager) {
         if (blocksToMaybeBurn.isEmpty()) return;
 
         long burnDelayTicks = (long) (options.getBurnDelay() * 20);
-        int outerTask = Bukkit.getScheduler().runTaskLater(main.getPlugin(),()->{
+
+        taskManager.scheduleTask(() -> {
             List<Block> blockList = new ArrayList<>(blocksToMaybeBurn);
             Collections.shuffle(blockList);
 
@@ -285,7 +276,7 @@ public class ExplosionUtils implements Main {
                 int waveDelay = waveEntry.getKey() * 3;
                 List<Block> waveBlocks = waveEntry.getValue();
 
-                int middleTask = Bukkit.getScheduler().runTaskLater(main.getPlugin(),()->{
+                taskManager.scheduleTask(() -> {
                     for (Block block : waveBlocks) {
                         if (burner.isClosed()) continue;
 
@@ -294,21 +285,15 @@ public class ExplosionUtils implements Main {
                         ThreadLocalRandom random = ThreadLocalRandom.current();
                         int randomDelay = random.nextInt(0, 10);
 
-                        int innerTask = Bukkit.getScheduler().runTaskLater(main.getPlugin(),()->{
+                        taskManager.scheduleTask(() -> {
                             if (!burner.isClosed() && !block.getType().isAir()) {
                                 burner.burn(block, heat);
                             }
-                        },randomDelay).getTaskId();
-
-                        result.addScheduledTask(innerTask);
+                        }, randomDelay);
                     }
-                },waveDelay).getTaskId();
-
-                result.addScheduledTask(middleTask);
+                }, waveDelay);
             }
-        },burnDelayTicks).getTaskId();
-
-        result.addScheduledTask(outerTask);
+        }, burnDelayTicks);
     }
 
     private static void createExplosionEffects(Location center, ExplosionOptions options) {
@@ -326,9 +311,9 @@ public class ExplosionUtils implements Main {
             world.spawnParticle(Particle.LARGE_SMOKE, center, 15, 1, 1, 1, 0.05);
             world.spawnParticle(Particle.FLAME, center, 30, 3, 3, 3, 0.1);
 
-            Bukkit.getScheduler().runTaskLater(main.getPlugin(),()->{
+            Bukkit.getScheduler().runTaskLater(main.getPlugin(), () -> {
                 world.spawnParticle(Particle.SMOKE, center, 50, 4, 4, 4, 0.02);
-            },20);
+            }, 20);
         }
     }
 

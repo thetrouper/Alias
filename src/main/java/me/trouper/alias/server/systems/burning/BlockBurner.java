@@ -1,6 +1,7 @@
 package me.trouper.alias.server.systems.burning;
 
 import me.trouper.alias.server.Main;
+import me.trouper.alias.server.systems.TaskManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -16,22 +17,27 @@ import java.util.concurrent.ThreadLocalRandom;
 public class BlockBurner implements Closeable, Main {
     private final BurnOptions options;
     private final BurnPalette palette;
-    private boolean isClosed = false;
+    private final TaskManager taskManager;
     private final Set<Block> visited = new HashSet<>();
     private final Map<Block, Material> burning = new HashMap<>();
-    private final Set<Integer> tasks = new HashSet<>();
 
     public BlockBurner(BurnOptions options) {
         this.options = options;
         this.palette = new BurnPalette();
+        this.taskManager = new TaskManager();
+    }
+
+    public BlockBurner(BurnOptions options, TaskManager sharedTaskManager) {
+        this.options = options;
+        this.palette = new BurnPalette();
+        this.taskManager = sharedTaskManager;
     }
 
     @Override
     public void close() {
-        tasks.forEach(task -> Bukkit.getScheduler().cancelTask(task));
+        taskManager.close();
         visited.clear();
         burning.clear();
-        isClosed = true;
     }
 
     public void burn(Block block, float heat) {
@@ -47,22 +53,13 @@ public class BlockBurner implements Closeable, Main {
         if (block.getType().isAir() && canPlaceFireOn(blockBelow)) {
             if (ThreadLocalRandom.current().nextFloat() > options.getSetFireChance()) return;
 
-            if (isClosed()) return;
             setBlock(block, palette.getFirePalette().getFirst());
 
-            if (isClosed()) return;
-            int taskId = Bukkit.getScheduler().runTaskLater(main.getPlugin(), ()->{
+            taskManager.scheduleTask(() -> {
                 if (!canPlaceFireOn(blockBelow)) {
                     setBlock(block, Material.AIR);
                 }
-            },20 * 10).getTaskId();
-
-            if (!isClosed()) {
-                tasks.add(taskId);
-            } else {
-                tasks.add(taskId);
-                Bukkit.getScheduler().cancelTask(taskId);
-            }
+            }, 20 * 10);
 
             return;
         }
@@ -81,19 +78,11 @@ public class BlockBurner implements Closeable, Main {
 
         for (BurnStage stage : stages) {
             totalDelay += stage.getDelay();
-            if (isClosed()) return;
 
-            int taskId = Bukkit.getScheduler().runTaskLater(main.getPlugin(), ()->{
+            taskManager.scheduleTask(() -> {
                 if (block.getType().isAir()) return;
                 setBlock(block, stage.getBlockData());
-            },totalDelay).getTaskId();
-
-            if (!isClosed()) {
-                tasks.add(taskId);
-            } else {
-                tasks.add(taskId);
-                Bukkit.getScheduler().cancelTask(taskId);
-            }
+            }, totalDelay);
         }
     }
 
@@ -130,16 +119,20 @@ public class BlockBurner implements Closeable, Main {
     }
 
     private void setBlock(Block block, Material material) {
-        if (isClosed()) return;
+        if (taskManager.isClosed()) return;
         block.setType(material);
     }
 
     private void setBlock(Block block, BlockData data) {
-        if (isClosed()) return;
+        if (taskManager.isClosed()) return;
         block.setBlockData(data);
     }
 
     public boolean isClosed() {
-        return isClosed;
+        return taskManager.isClosed();
+    }
+
+    public TaskManager getTaskManager() {
+        return taskManager;
     }
 }
