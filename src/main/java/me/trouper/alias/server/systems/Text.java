@@ -74,26 +74,6 @@ public class Text implements Main {
         message(pallet,true,audience,text,args);
     }
 
-    public static void sendWarning(Audience audience, String warning, Object... args) {
-        messageAny(Pallet.WARNING, audience, warning, args);
-    }
-
-    public static void sendError(Audience audience, String error, Object... args) {
-        messageAny(Pallet.ERROR, audience, error, args);
-    }
-
-    public static void sendInfo(Audience audience, String info, Object... args) {
-        messageAny(Pallet.INFO, audience, info, args);
-    }
-
-    public static void sendSuccess(Audience audience, String success, Object... args) {
-        messageAny(Pallet.SUCCESS, audience, success, args);
-    }
-
-    public static void sendMessage(Audience audience, String text, Object... args) {
-        messageAny(Pallet.NEUTRAL, audience, text, args);
-    }
-
     /**
      * Gets the component form of a message, applying pallet formatting to the text and placeholders. Placeholders are zero-indexed and curly braced. {0}, {1}, {2}...
      * @param pallet The colors to use for text and arguments.

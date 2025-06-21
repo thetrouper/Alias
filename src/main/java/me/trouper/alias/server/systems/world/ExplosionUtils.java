@@ -5,9 +5,12 @@ import me.trouper.alias.server.systems.Verbose;
 import me.trouper.alias.server.systems.TaskManager;
 import me.trouper.alias.server.systems.burning.BlockBurner;
 import me.trouper.alias.server.systems.burning.BurnOptions;
+import me.trouper.alias.utils.TargetingUtils;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -23,6 +26,7 @@ public class ExplosionUtils implements Main {
         private double coreRadius = 3.0;
         private double falloffRadius = 8.0;
         private double maxBurnRadius = 15.0;
+        private double baseDamage = 20;
         private double destructionDelay = 0.0; // SECONDS
         private double burnDelay = 0.5; // SECONDS
         private double maxHeat = 1.0;
@@ -39,6 +43,9 @@ public class ExplosionUtils implements Main {
 
         public double getMaxBurnRadius() { return maxBurnRadius; }
         public void setMaxBurnRadius(double maxBurnRadius) { this.maxBurnRadius = maxBurnRadius; }
+
+        public double getBaseDamage() { return baseDamage; }
+        public void setBaseDamage(double baseDamage) { this.baseDamage = baseDamage; }
 
         public double getDestructionDelay() { return destructionDelay; }
         public void setDestructionDelay(double destructionDelay) { this.destructionDelay = destructionDelay; }
@@ -92,22 +99,22 @@ public class ExplosionUtils implements Main {
         }
 
         public void restore() {
-            // First cleanup all tasks
             cleanup();
 
-            // Then restore blocks
             for (Map.Entry<Block, BlockState> entry : originalStates.entrySet()) {
                 Block block = entry.getKey();
                 BlockState snapshot = entry.getValue();
 
-                block.setBlockData(snapshot.getBlockData(), false);
-                snapshot.update(true, false);
+                Bukkit.getScheduler().runTask(main.getPlugin(),()->{
+                    block.setBlockData(snapshot.getBlockData(), false);
+                    snapshot.update(true, false);
 
-                ItemStack[] contents = originalInventories.get(block);
-                if (contents != null && block.getState() instanceof InventoryHolder) {
-                    Inventory inv = ((InventoryHolder) block.getState()).getInventory();
-                    inv.setContents(contents);
-                }
+                    ItemStack[] contents = originalInventories.get(block);
+                    if (contents != null && block.getState() instanceof InventoryHolder) {
+                        Inventory inv = ((InventoryHolder) block.getState()).getInventory();
+                        inv.setContents(contents);
+                    }
+                });
             }
         }
 
@@ -127,9 +134,11 @@ public class ExplosionUtils implements Main {
         World world = center.getWorld();
         if (world == null) throw new IllegalArgumentException("Center location must have a valid world");
 
-        Map<Block, Double> affectedBlocks = getBlocksInRadius(center, options.getMaxBurnRadius());
+        double maxBurnRadius = options.getMaxBurnRadius();
 
-        // Create shared task manager for this explosion
+        Map<Block, Double> affectedBlocks = getBlocksInRadius(center, maxBurnRadius);
+        Map<UUID, Double> affectedEntities = getEntitiesInRadius(center, maxBurnRadius);
+
         TaskManager sharedTaskManager = new TaskManager();
         BlockBurner burner = new BlockBurner(options.getBurnOptions(), sharedTaskManager);
         ExplosionResult result = new ExplosionResult(burner);
@@ -147,6 +156,7 @@ public class ExplosionUtils implements Main {
 
         scheduleDestruction(blocksToDestroy, options, sharedTaskManager);
         scheduleBurning(blocksToBurn, blocksHeatMap, burner, center, options, sharedTaskManager);
+        scheduleDamage(affectedEntities, options, sharedTaskManager);
 
         if (options.isCreateParticles() || options.isPlaySound()) createExplosionEffects(center, options);
 
@@ -178,6 +188,17 @@ public class ExplosionUtils implements Main {
         }
 
         return blocks;
+    }
+
+    public static Map<UUID, Double> getEntitiesInRadius(Location center, double radius) {
+        List<LivingEntity> rawList = center.getNearbyLivingEntities(radius).stream().toList();
+        Map<UUID, Double> entities = new HashMap<>();
+
+        for (LivingEntity livingEntity : rawList) {
+            entities.put(livingEntity.getUniqueId(),livingEntity.getLocation().distance(center));
+        }
+
+        return entities;
     }
 
     private static void categorizeBlocks(Map<Block, Double> affectedBlocks, ExplosionOptions options,
@@ -294,6 +315,41 @@ public class ExplosionUtils implements Main {
                 }, waveDelay);
             }
         }, burnDelayTicks);
+    }
+
+    private static void scheduleDamage(Map<UUID, Double> affected, ExplosionOptions options, TaskManager taskManager) {
+        double baseDamage = options.getBaseDamage();
+        double igniteDistance = options.getMaxBurnRadius();
+        double halfDamageDistance = options.getFalloffRadius();
+        double fullDamageDistance = options.getCoreRadius();
+
+        for (Map.Entry<UUID, Double> entityDistance : affected.entrySet()) {
+            LivingEntity liv = (LivingEntity) Bukkit.getEntity(entityDistance.getKey());
+            if (liv == null) continue;
+
+            double distance = entityDistance.getValue();
+
+            if (distance >= halfDamageDistance && distance <= igniteDistance) {
+                taskManager.scheduleTask(()->{
+                    liv.setFireTicks(5 * 20);
+                },(long) distance / 2);
+                return;
+            }
+            if (distance >= fullDamageDistance && distance <= halfDamageDistance) {
+                taskManager.scheduleTask(()->{
+                    liv.setFireTicks(10 * 20);
+                    liv.damage(baseDamage / 2);
+                },(long) distance / 2);
+                return;
+            }
+            if (distance <= fullDamageDistance) {
+                taskManager.scheduleTask(()->{
+                    liv.setFireTicks(15 * 20);
+                    liv.damage(baseDamage);
+                },(long) distance / 2);
+                return;
+            }
+        }
     }
 
     private static void createExplosionEffects(Location center, ExplosionOptions options) {
