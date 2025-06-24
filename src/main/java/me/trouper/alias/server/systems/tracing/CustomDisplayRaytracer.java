@@ -77,17 +77,19 @@ public class CustomDisplayRaytracer {
         return point -> HIT_BLOCK.test(point) && !point.getNearbyEntities(null, 5, true, 0.1, e -> e instanceof LivingEntity le && !le.isDead() && condition.test(e)).isEmpty();
     }
 
-
     public static Point trace(Location start, Location end, Predicate<Point> hitCondition) {
         return trace(start, end, 0.5, hitCondition);
     }
 
     public static Point trace(Location start, Location end, double interval, Predicate<Point> hitCondition) {
-        return trace(start, end.toVector().subtract(start.toVector()), end.distance(start), interval, hitCondition);
+        Vector direction = end.toVector().subtract(start.toVector()).normalize();
+        double distance = end.distance(start);
+        return trace(start, direction, distance, interval, hitCondition);
     }
 
     public static Point trace(Location start, Vector direction, double distance, Predicate<Point> hitCondition) {
-        return trace(start, direction, distance, 0.5, hitCondition);
+        Vector normal = direction.clone().normalize();
+        return trace(start, normal, distance, 0.5, hitCondition);
     }
 
     public static Point trace(Location start, Vector direction, double distance, double interval, Predicate<Point> hitCondition) {
@@ -285,7 +287,8 @@ public class CustomDisplayRaytracer {
     }
 
     public static Point blocksInFrontOf(Location loc, Vector dir, double blocks, boolean missed) {
-        return new Point(loc.clone().add(dir.getX() * blocks, dir.getY() * blocks, dir.getZ() * blocks), blocks, missed);
+        Vector normal = dir.clone().normalize();
+        return new Point(loc.clone().add(normal.getX() * blocks, normal.getY() * blocks, normal.getZ() * blocks), blocks, missed);
     }
 
     public static Vector offsetVector(Vector original, double angleDegrees) {

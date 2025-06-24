@@ -1,134 +1,18 @@
 package me.trouper.alias.server.systems.world;
 
 import me.trouper.alias.server.Main;
-import me.trouper.alias.server.systems.Verbose;
 import me.trouper.alias.server.systems.TaskManager;
 import me.trouper.alias.server.systems.burning.BlockBurner;
-import me.trouper.alias.server.systems.burning.BurnOptions;
-import me.trouper.alias.utils.TargetingUtils;
+import me.trouper.alias.utils.SoundPlayer;
 import org.bukkit.*;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-import java.io.Closeable;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class ExplosionUtils implements Main {
-
-    public static class ExplosionOptions {
-        private double coreRadius = 3.0;
-        private double falloffRadius = 8.0;
-        private double maxBurnRadius = 15.0;
-        private double baseDamage = 20;
-        private double destructionDelay = 0.0; // SECONDS
-        private double burnDelay = 0.5; // SECONDS
-        private double maxHeat = 1.0;
-        private double minHeat = 0.1;
-        private boolean createParticles = true;
-        private boolean playSound = true;
-        private BurnOptions burnOptions = new BurnOptions();
-
-        public double getCoreRadius() { return coreRadius; }
-        public void setCoreRadius(double coreRadius) { this.coreRadius = coreRadius; }
-
-        public double getFalloffRadius() { return falloffRadius; }
-        public void setFalloffRadius(double falloffRadius) { this.falloffRadius = falloffRadius; }
-
-        public double getMaxBurnRadius() { return maxBurnRadius; }
-        public void setMaxBurnRadius(double maxBurnRadius) { this.maxBurnRadius = maxBurnRadius; }
-
-        public double getBaseDamage() { return baseDamage; }
-        public void setBaseDamage(double baseDamage) { this.baseDamage = baseDamage; }
-
-        public double getDestructionDelay() { return destructionDelay; }
-        public void setDestructionDelay(double destructionDelay) { this.destructionDelay = destructionDelay; }
-
-        public double getBurnDelay() { return burnDelay; }
-        public void setBurnDelay(double burnDelay) { this.burnDelay = burnDelay; }
-
-        public double getMaxHeat() { return maxHeat; }
-        public void setMaxHeat(double maxHeat) { this.maxHeat = maxHeat; }
-
-        public double getMinHeat() { return minHeat; }
-        public void setMinHeat(double minHeat) { this.minHeat = minHeat; }
-
-        public boolean isCreateParticles() { return createParticles; }
-        public void setCreateParticles(boolean createParticles) { this.createParticles = createParticles; }
-
-        public boolean isPlaySound() { return playSound; }
-        public void setPlaySound(boolean playSound) { this.playSound = playSound; }
-
-        public BurnOptions getBurnOptions() { return burnOptions; }
-        public void setBurnOptions(BurnOptions burnOptions) { this.burnOptions = burnOptions; }
-    }
-
-    public static class ExplosionResult {
-        private final Map<Block, BlockState> originalStates = new HashMap<>();
-        private final Map<Block, ItemStack[]> originalInventories = new HashMap<>();
-        private final TaskManager taskManager;
-        private final BlockBurner burner;
-
-        public ExplosionResult(TaskManager taskManager) {
-            this.taskManager = taskManager;
-            this.burner = new BlockBurner(new BurnOptions(), taskManager);
-        }
-
-        public ExplosionResult(BlockBurner burner) {
-            this.burner = burner;
-            this.taskManager = burner.getTaskManager();
-        }
-
-        public void cleanup() {
-            taskManager.close();
-        }
-
-        void recordSnapshot(Block block) {
-            BlockState state = block.getState();
-            originalStates.put(block, state);
-            if (state instanceof InventoryHolder) {
-                Inventory inv = ((InventoryHolder) state).getInventory();
-                originalInventories.put(block, inv.getContents());
-            }
-        }
-
-        public void restore() {
-            cleanup();
-
-            for (Map.Entry<Block, BlockState> entry : originalStates.entrySet()) {
-                Block block = entry.getKey();
-                BlockState snapshot = entry.getValue();
-
-                Bukkit.getScheduler().runTask(main.getPlugin(),()->{
-                    block.setBlockData(snapshot.getBlockData(), false);
-                    snapshot.update(true, false);
-
-                    ItemStack[] contents = originalInventories.get(block);
-                    if (contents != null && block.getState() instanceof InventoryHolder) {
-                        Inventory inv = ((InventoryHolder) block.getState()).getInventory();
-                        inv.setContents(contents);
-                    }
-                });
-            }
-        }
-
-        public BlockBurner getBurner() { return burner; }
-        public TaskManager getTaskManager() { return taskManager; }
-
-        public Map<Block, BlockState> getOriginalStates() {
-            return originalStates;
-        }
-
-        public Map<Block, ItemStack[]> getOriginalInventories() {
-            return originalInventories;
-        }
-    }
 
     public static ExplosionResult createExplosion(Location center, ExplosionOptions options) {
         World world = center.getWorld();
@@ -136,51 +20,59 @@ public class ExplosionUtils implements Main {
 
         double maxBurnRadius = options.getMaxBurnRadius();
 
-        Map<Block, Double> affectedBlocks = getBlocksInRadius(center, maxBurnRadius);
-        Map<UUID, Double> affectedEntities = getEntitiesInRadius(center, maxBurnRadius);
+        try {
+            Map<Block, Double> affectedBlocks = getBlocksInRadius(center, maxBurnRadius);
+            Map<UUID, Double> affectedEntities = getEntitiesInRadius(center, maxBurnRadius);
 
-        TaskManager sharedTaskManager = new TaskManager();
-        BlockBurner burner = new BlockBurner(options.getBurnOptions(), sharedTaskManager);
-        ExplosionResult result = new ExplosionResult(burner);
+            BlockBurner burner = new BlockBurner(options.getBurnOptions());
+            TaskManager sharedTaskManager = burner.getTaskManager();
+            ExplosionResult result = new ExplosionResult(affectedBlocks.keySet(), sharedTaskManager);
 
-        for (Block block : affectedBlocks.keySet()) {
-            if (block.getType().isAir()) continue;
-            result.recordSnapshot(block);
+            List<Block> blocksToDestroy = new ArrayList<>();
+            List<Block> blocksToBurn = new ArrayList<>();
+            Map<Block, Float> blocksHeatMap = new HashMap<>(affectedBlocks.size());
+
+            categorizeBlocks(affectedBlocks, options, blocksToDestroy, blocksToBurn, blocksHeatMap);
+
+            scheduleDestruction(blocksToDestroy, options, sharedTaskManager);
+            scheduleBurning(blocksToBurn, blocksHeatMap, burner, center, options, sharedTaskManager);
+            scheduleDamage(affectedEntities, options, sharedTaskManager);
+
+            if (options.isCreateParticles() || options.isPlaySound()) {
+                createExplosionEffects(center, options);
+            }
+
+            return result;
+
+        } catch (Exception e) {
+            System.err.println("Failed to create explosion: " + e.getMessage());
+            throw e;
         }
-
-        Set<Block> blocksToDestroy = new HashSet<>();
-        Set<Block> blocksToBurn = new HashSet<>();
-        Map<Block, Float> blocksHeatMap = new HashMap<>();
-
-        categorizeBlocks(affectedBlocks, options, blocksToDestroy, blocksToBurn, blocksHeatMap);
-
-        scheduleDestruction(blocksToDestroy, options, sharedTaskManager);
-        scheduleBurning(blocksToBurn, blocksHeatMap, burner, center, options, sharedTaskManager);
-        scheduleDamage(affectedEntities, options, sharedTaskManager);
-
-        if (options.isCreateParticles() || options.isPlaySound()) createExplosionEffects(center, options);
-
-        return result;
     }
 
     private static Map<Block, Double> getBlocksInRadius(Location center, double radius) {
-        Map<Block, Double> blocks = new HashMap<>();
         World world = center.getWorld();
+        if (world == null) return Collections.emptyMap();
 
         int radiusInt = (int) Math.ceil(radius);
-        Vector centerVec = center.toVector();
+
+        int estimatedBlocks = (int) ((4.0 / 3.0) * Math.PI * Math.pow(radius, 3));
+        Map<Block, Double> blocks = new HashMap<>(estimatedBlocks * 4 / 3 + 1);
+
+        int centerX = center.getBlockX();
+        int centerY = center.getBlockY();
+        int centerZ = center.getBlockZ();
+        double radiusSquared = radius * radius;
 
         for (int x = -radiusInt; x <= radiusInt; x++) {
             for (int y = -radiusInt; y <= radiusInt; y++) {
                 for (int z = -radiusInt; z <= radiusInt; z++) {
-                    Block block = world.getBlockAt(
-                            center.getBlockX() + x,
-                            center.getBlockY() + y,
-                            center.getBlockZ() + z
-                    );
+                    double distanceSquared = x*x + y*y + z*z;
+                    if (distanceSquared > radiusSquared) continue;
 
-                    double distance = block.getLocation().toVector().distance(centerVec);
-                    if (distance <= radius) {
+                    Block block = world.getBlockAt(centerX + x, centerY + y, centerZ + z);
+                    if (block != null && !block.getType().isAir()) {
+                        double distance = Math.sqrt(distanceSquared);
                         blocks.put(block, distance);
                     }
                 }
@@ -190,21 +82,32 @@ public class ExplosionUtils implements Main {
         return blocks;
     }
 
-    public static Map<UUID, Double> getEntitiesInRadius(Location center, double radius) {
-        List<LivingEntity> rawList = center.getNearbyLivingEntities(radius).stream().toList();
-        Map<UUID, Double> entities = new HashMap<>();
+    private static Map<UUID, Double> getEntitiesInRadius(Location center, double radius) {
+        List<LivingEntity> rawList = center.getNearbyEntities(radius, radius, radius).stream()
+                .filter(entity -> entity instanceof LivingEntity)
+                .map(entity -> (LivingEntity) entity)
+                .toList();
+
+        if (rawList.isEmpty()) return Collections.emptyMap();
+
+        Map<UUID, Double> entities = new HashMap<>(rawList.size() * 4 / 3 + 1);
 
         for (LivingEntity livingEntity : rawList) {
-            entities.put(livingEntity.getUniqueId(),livingEntity.getLocation().distance(center));
+            if (livingEntity != null && livingEntity.isValid()) {
+                entities.put(livingEntity.getUniqueId(), livingEntity.getLocation().distance(center));
+            }
         }
 
         return entities;
     }
 
     private static void categorizeBlocks(Map<Block, Double> affectedBlocks, ExplosionOptions options,
-                                         Set<Block> blocksToDestroy, Set<Block> blocksToBurn,
+                                         List<Block> blocksToDestroy, List<Block> blocksToBurn,
                                          Map<Block, Float> blocksHeatMap) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
+
+        int totalBlocks = affectedBlocks.size();
+        List<Block> tempBlocksToBurn = new ArrayList<>(totalBlocks / 2);
 
         for (Map.Entry<Block, Double> entry : affectedBlocks.entrySet()) {
             Block block = entry.getKey();
@@ -215,7 +118,11 @@ public class ExplosionUtils implements Main {
             float heat = calculateHeat(distance, options);
             blocksHeatMap.put(block, heat);
 
-            if (distance <= options.getCoreRadius()) blocksToDestroy.add(block);
+            if (distance <= options.getCoreRadius()) {
+                blocksToDestroy.add(block);
+                tempBlocksToBurn.add(block);
+                continue;
+            }
 
             if (distance <= options.getFalloffRadius()) {
                 double destructionChance = 1.0 - ((distance - options.getCoreRadius()) /
@@ -223,14 +130,26 @@ public class ExplosionUtils implements Main {
 
                 destructionChance *= (0.7 + random.nextDouble() * 0.6);
 
-                if (random.nextDouble() < destructionChance) blocksToDestroy.add(block);
-                else blocksToBurn.add(block);
+                if (random.nextDouble() < destructionChance) {
+                    blocksToDestroy.add(block);
+                } else {
+                    tempBlocksToBurn.add(block);
+                }
             } else {
                 double burnChance = 1.0 - ((distance - options.getFalloffRadius()) /
                         (options.getMaxBurnRadius() - options.getFalloffRadius()));
                 burnChance *= (0.8 + random.nextDouble() * 0.6);
 
-                if (random.nextDouble() < burnChance) blocksToBurn.add(block);
+                if (random.nextDouble() < burnChance) {
+                    tempBlocksToBurn.add(block);
+                }
+            }
+        }
+
+        Set<Block> toDestroySet = new HashSet<>(blocksToDestroy);
+        for (Block block : tempBlocksToBurn) {
+            if (!isOccluded(block, toDestroySet)) {
+                blocksToBurn.add(block);
             }
         }
     }
@@ -238,42 +157,43 @@ public class ExplosionUtils implements Main {
     private static float calculateHeat(double distance, ExplosionOptions options) {
         double normalizedDistance = distance / options.getMaxBurnRadius();
         double heatRange = options.getMaxHeat() - options.getMinHeat();
-
         double heatFactor = Math.pow(1.0 - normalizedDistance, 2.0);
-
         return (float) (options.getMinHeat() + heatRange * heatFactor);
     }
 
-    private static void scheduleDestruction(Set<Block> blocksToDestroy, ExplosionOptions options, TaskManager taskManager) {
+    private static void scheduleDestruction(List<Block> blocksToDestroy, ExplosionOptions options, TaskManager taskManager) {
         if (blocksToDestroy.isEmpty()) return;
 
         long destructionDelayTicks = (long) (options.getDestructionDelay() * 20);
 
         taskManager.scheduleTask(() -> {
-            List<Block> blockList = new ArrayList<>(blocksToDestroy);
-            Collections.shuffle(blockList);
-
-            int blocksPerWave = Math.max(1, blockList.size() / 5);
+            Collections.shuffle(blocksToDestroy);
+            int blocksPerWave = Math.max(1, blocksToDestroy.size() / 5);
 
             for (int wave = 0; wave < 5; wave++) {
                 int startIndex = wave * blocksPerWave;
-                int endIndex = Math.min(startIndex + blocksPerWave, blockList.size());
+                int endIndex = Math.min(startIndex + blocksPerWave, blocksToDestroy.size());
 
-                if (startIndex >= blockList.size()) break;
+                if (startIndex >= blocksToDestroy.size()) break;
+
+                final int finalStartIndex = startIndex;
+                final int finalEndIndex = endIndex;
 
                 taskManager.scheduleTask(() -> {
-                    for (int i = startIndex; i < endIndex; i++) {
-                        Block block = blockList.get(i);
-                        if (!block.getType().isAir()) {
-                            block.setType(Material.AIR);
+                    for (int i = finalStartIndex; i < finalEndIndex; i++) {
+                        if (i < blocksToDestroy.size()) {
+                            Block block = blocksToDestroy.get(i);
+                            if (block != null && !block.getType().isAir()) {
+                                block.setType(Material.AIR);
+                            }
                         }
                     }
-                }, wave * 2);
+                }, wave * 2L);
             }
         }, destructionDelayTicks);
     }
 
-    private static void scheduleBurning(Set<Block> blocksToMaybeBurn, Map<Block, Float> blocksHeatMap,
+    private static void scheduleBurning(List<Block> blocksToMaybeBurn, Map<Block, Float> blocksHeatMap,
                                         BlockBurner burner, Location center, ExplosionOptions options,
                                         TaskManager taskManager) {
         if (blocksToMaybeBurn.isEmpty()) return;
@@ -281,16 +201,16 @@ public class ExplosionUtils implements Main {
         long burnDelayTicks = (long) (options.getBurnDelay() * 20);
 
         taskManager.scheduleTask(() -> {
-            List<Block> blockList = new ArrayList<>(blocksToMaybeBurn);
-            Collections.shuffle(blockList);
+            Collections.shuffle(blocksToMaybeBurn);
 
             Map<Integer, List<Block>> burnWaves = new HashMap<>();
 
-            for (Block block : blockList) {
-                double distance = block.getLocation().distance(center);
-                int waveIndex = (int) (distance / 2.0);
-
-                burnWaves.computeIfAbsent(waveIndex, k -> new ArrayList<>()).add(block);
+            for (Block block : blocksToMaybeBurn) {
+                if (block != null) {
+                    double distance = block.getLocation().distance(center);
+                    int waveIndex = (int) (distance / 2.0);
+                    burnWaves.computeIfAbsent(waveIndex, k -> new ArrayList<>()).add(block);
+                }
             }
 
             for (Map.Entry<Integer, List<Block>> waveEntry : burnWaves.entrySet()) {
@@ -298,17 +218,17 @@ public class ExplosionUtils implements Main {
                 List<Block> waveBlocks = waveEntry.getValue();
 
                 taskManager.scheduleTask(() -> {
+                    ThreadLocalRandom random = ThreadLocalRandom.current();
+
                     for (Block block : waveBlocks) {
-                        if (burner.isClosed()) continue;
+                        if (burner.isClosed() || block == null) continue;
 
                         float heat = blocksHeatMap.getOrDefault(block, 0.1f);
-
-                        ThreadLocalRandom random = ThreadLocalRandom.current();
                         int randomDelay = random.nextInt(0, 10);
 
                         taskManager.scheduleTask(() -> {
-                            if (!burner.isClosed() && !block.getType().isAir()) {
-                                burner.burn(block, heat);
+                            if (!burner.isClosed() && block != null && !block.getType().isAir()) {
+                                burner.burn(block, heat, false);
                             }
                         }, randomDelay);
                     }
@@ -318,36 +238,43 @@ public class ExplosionUtils implements Main {
     }
 
     private static void scheduleDamage(Map<UUID, Double> affected, ExplosionOptions options, TaskManager taskManager) {
+        if (affected.isEmpty()) return;
+
         double baseDamage = options.getBaseDamage();
         double igniteDistance = options.getMaxBurnRadius();
         double halfDamageDistance = options.getFalloffRadius();
         double fullDamageDistance = options.getCoreRadius();
 
         for (Map.Entry<UUID, Double> entityDistance : affected.entrySet()) {
-            LivingEntity liv = (LivingEntity) Bukkit.getEntity(entityDistance.getKey());
-            if (liv == null) continue;
+            UUID entityId = entityDistance.getKey();
+            if (entityId == null) continue;
 
             double distance = entityDistance.getValue();
+            long delay = Math.max(1, (long) distance / 2);
 
             if (distance >= halfDamageDistance && distance <= igniteDistance) {
-                taskManager.scheduleTask(()->{
-                    liv.setFireTicks(5 * 20);
-                },(long) distance / 2);
-                return;
-            }
-            if (distance >= fullDamageDistance && distance <= halfDamageDistance) {
-                taskManager.scheduleTask(()->{
-                    liv.setFireTicks(10 * 20);
-                    liv.damage(baseDamage / 2);
-                },(long) distance / 2);
-                return;
-            }
-            if (distance <= fullDamageDistance) {
-                taskManager.scheduleTask(()->{
-                    liv.setFireTicks(15 * 20);
-                    liv.damage(baseDamage);
-                },(long) distance / 2);
-                return;
+                taskManager.scheduleTask(() -> {
+                    LivingEntity entity = (LivingEntity) Bukkit.getEntity(entityId);
+                    if (entity != null && entity.isValid()) {
+                        entity.setFireTicks(5 * 20);
+                    }
+                }, delay);
+            } else if (distance >= fullDamageDistance && distance <= halfDamageDistance) {
+                taskManager.scheduleTask(() -> {
+                    LivingEntity entity = (LivingEntity) Bukkit.getEntity(entityId);
+                    if (entity != null && entity.isValid()) {
+                        entity.setFireTicks(10 * 20);
+                        entity.damage(baseDamage / 2);
+                    }
+                }, delay);
+            } else if (distance <= fullDamageDistance) {
+                taskManager.scheduleTask(() -> {
+                    LivingEntity entity = (LivingEntity) Bukkit.getEntity(entityId);
+                    if (entity != null && entity.isValid()) {
+                        entity.setFireTicks(15 * 20);
+                        entity.damage(baseDamage);
+                    }
+                }, delay);
             }
         }
     }
@@ -356,9 +283,12 @@ public class ExplosionUtils implements Main {
         World world = center.getWorld();
         if (world == null) return;
 
+        double soundRange = options.getMaxBurnRadius() * 20;
+
         if (options.isPlaySound()) {
-            world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
-            world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.5f, 1.2f);
+            new SoundPlayer(Sound.ENTITY_WARDEN_SONIC_BOOM, 40, 0.5F).playAt(center, soundRange);
+            new SoundPlayer(Sound.ENTITY_WARDEN_SONIC_BOOM, 40, 1.0F).playAt(center, soundRange);
+            new SoundPlayer(Sound.ITEM_TOTEM_USE, 40, 0.5F).playAt(center, soundRange);
         }
 
         if (options.isCreateParticles()) {
@@ -368,22 +298,25 @@ public class ExplosionUtils implements Main {
             world.spawnParticle(Particle.FLAME, center, 30, 3, 3, 3, 0.1);
 
             Bukkit.getScheduler().runTaskLater(main.getPlugin(), () -> {
-                world.spawnParticle(Particle.SMOKE, center, 50, 4, 4, 4, 0.02);
-            }, 20);
+                if (center.getWorld() != null) {
+                    center.getWorld().spawnParticle(Particle.SMOKE, center, 50, 4, 4, 4, 0.02);
+                }
+            }, 20L);
         }
     }
 
-    public static ExplosionResult createExplosion(Location center) {
-        return createExplosion(center, new ExplosionOptions());
+    private static boolean isOccluded(Block block, Set<Block> doesNotOcclude) {
+        if (block == null) return true;
+
+        return isOccluding(block.getRelative(0, 1, 0), doesNotOcclude) &&
+                isOccluding(block.getRelative(0, -1, 0), doesNotOcclude) &&
+                isOccluding(block.getRelative(1, 0, 0), doesNotOcclude) &&
+                isOccluding(block.getRelative(-1, 0, 0), doesNotOcclude) &&
+                isOccluding(block.getRelative(0, 0, 1), doesNotOcclude) &&
+                isOccluding(block.getRelative(0, 0, -1), doesNotOcclude);
     }
 
-    public static ExplosionResult createExplosion(Location center, double coreRadius, double falloffRadius, double maxBurnRadius) {
-        ExplosionOptions options = new ExplosionOptions();
-        options.setCoreRadius(coreRadius);
-        options.setFalloffRadius(falloffRadius);
-        options.setMaxBurnRadius(maxBurnRadius);
-        options.setBurnDelay(0);
-        options.setDestructionDelay(0);
-        return createExplosion(center, options);
+    private static boolean isOccluding(Block block, Set<Block> doesNotOcclude) {
+        return block != null && block.getType().isOccluding() && !doesNotOcclude.contains(block);
     }
 }

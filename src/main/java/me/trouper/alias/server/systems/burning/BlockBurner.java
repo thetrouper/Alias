@@ -2,7 +2,6 @@ package me.trouper.alias.server.systems.burning;
 
 import me.trouper.alias.server.Main;
 import me.trouper.alias.server.systems.TaskManager;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -27,12 +26,6 @@ public class BlockBurner implements Closeable, Main {
         this.taskManager = new TaskManager();
     }
 
-    public BlockBurner(BurnOptions options, TaskManager sharedTaskManager) {
-        this.options = options;
-        this.palette = new BurnPalette();
-        this.taskManager = sharedTaskManager;
-    }
-
     @Override
     public void close() {
         taskManager.close();
@@ -40,8 +33,8 @@ public class BlockBurner implements Closeable, Main {
         burning.clear();
     }
 
-    public void burn(Block block, float heat) {
-        if (isOccluded(block)) return;
+    public void burn(Block block, float heat, boolean checkOcclusion) {
+        if (checkOcclusion && isOccluded(block)) return;
         if (visited.contains(block)) return;
 
         visited.add(block);
@@ -77,7 +70,7 @@ public class BlockBurner implements Closeable, Main {
         long totalDelay = 0;
 
         for (BurnStage stage : stages) {
-            totalDelay += stage.getDelay();
+            totalDelay += stage.getDelayTicks();
 
             taskManager.scheduleTask(() -> {
                 if (block.getType().isAir()) return;

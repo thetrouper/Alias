@@ -27,11 +27,6 @@ public class DisplayUtils implements Main {
         return l -> l.getWorld().spawnParticle(Particle.DUST, l, 1, 0, 0, 0, 0, dust);
     };
 
-    public static final Function<Boolean, Consumer<Location>> FLAME_PARTICLE_FACTORY = soul -> {
-        Particle flame = soul ? Particle.SOUL_FIRE_FLAME : Particle.FLAME;
-        return l -> l.getWorld().spawnParticle(flame, l, 1, 0, 0, 0, 0);
-    };
-
     public static void ring(Location loc, double radius, Color color, float thickness) {
         ring(loc, radius, DUST_PARTICLE_FACTORY.apply(color, thickness));
     }

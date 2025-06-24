@@ -3,13 +3,12 @@ package me.trouper.alias.server.systems;
 import me.trouper.alias.server.Main;
 import org.bukkit.Bukkit;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.io.Closeable;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class TaskManager implements Main {
-    private final ConcurrentHashMap<Integer, Boolean> tasks = new ConcurrentHashMap<>();
+public class TaskManager implements Closeable, Main {
+    private final Map<Integer, Boolean> tasks = new HashMap<>();
     private volatile boolean closed = false;
 
     public int scheduleTask(Runnable task, long delay) {
@@ -22,7 +21,7 @@ public class TaskManager implements Main {
         }, delay).getTaskId();
 
         if (!closed) {
-            tasks.put(taskId, Boolean.TRUE);
+            tasks.put(taskId,Boolean.TRUE);
             return taskId;
         } else {
             Bukkit.getScheduler().cancelTask(taskId);
@@ -30,6 +29,7 @@ public class TaskManager implements Main {
         }
     }
 
+    @Override
     public void close() {
         closed = true;
         tasks.keySet().forEach(Bukkit.getScheduler()::cancelTask);
