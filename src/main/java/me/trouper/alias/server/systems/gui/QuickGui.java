@@ -67,9 +67,7 @@ public class QuickGui implements InventoryHolder, Main {
     }
 
     public static QuickGui register(String id, QuickGui gui) {
-        if (gui != null && id != null && !id.isEmpty()) {
-            registry.put(id, gui);
-        }
+        registry.put(id, gui);
         return gui;
     }
 
@@ -379,6 +377,17 @@ public class QuickGui implements InventoryHolder, Main {
                 item.setItemMeta(meta);
             }
             return item(slot, item, action);
+        }
+
+
+        public GuiBuilder fillSlots(ItemStack item, GuiAction action, int... slots) {
+            for (int slot : slots) {
+                if (slot >= 0 && slot < 54 && item != null) {
+                    slotItems.put(slot,item);
+                    slotActions.put(slot,action);
+                }
+            }
+            return this;
         }
 
         public GuiBuilder fillBorder(Material material) {

@@ -30,7 +30,15 @@ public class Text implements Main {
      * @param args Qualified placeholders to color.
      */
     public static void messageAny(Pallet pallet, boolean playSound, Audience audience, String text, Object... args) {
-        message(pallet, playSound, audience, color(text), Arrays.stream(args).map(object -> Component.text(String.valueOf(object))).toArray(ComponentLike[]::new));
+        message(
+                pallet,
+                playSound,
+                audience,
+                color(text),
+                Arrays.stream(args)
+                        .map(object -> object instanceof ComponentLike ? (ComponentLike) object : Component.text(String.valueOf(object)))
+                        .toArray(ComponentLike[]::new)
+        );
     }
 
     /**
@@ -82,7 +90,13 @@ public class Text implements Main {
      * @return The final component, formatted according to flat/fancy setting.
      */
     public static Component getMessageAny(Pallet pallet, String text, Object... args) {
-        return getMessage(pallet, color(text), Arrays.stream(args).map(arg -> color(String.valueOf(arg))).toArray(ComponentLike[]::new));
+        return getMessage(
+                pallet,
+                color(text),
+                Arrays.stream(args)
+                        .map(object -> object instanceof ComponentLike ? (ComponentLike) object : Component.text(String.valueOf(object)))
+                        .toArray(ComponentLike[]::new)
+        );
     }
 
     /**
@@ -150,6 +164,7 @@ public class Text implements Main {
     /**
      * Wraps a component into multiple lines based on visible character count.
      * Preserves all Adventure API formatting including colors, decorations, and events.
+     * Fixed to prevent unwanted spaces before punctuation.
      * @param component The component to wrap
      * @param maxLineLength Maximum visible characters per line
      * @param firstLineOffset Offset for the first line (plugin name length)
@@ -157,6 +172,7 @@ public class Text implements Main {
      */
     private static List<Component> wrapComponent(Component component, int maxLineLength, int firstLineOffset) {
         List<Component> lines = new ArrayList<>();
+
         List<ComponentWord> words = extractWords(component);
 
         if (words.isEmpty()) {
@@ -166,20 +182,22 @@ public class Text implements Main {
 
         Component currentLine = Component.empty();
         int currentLineLength = firstLineOffset;
-        boolean isFirstLine = true;
 
         for (int i = 0; i < words.size(); i++) {
             ComponentWord word = words.get(i);
             int wordLength = word.visibleLength();
-            int spaceNeeded = (currentLine.equals(Component.empty()) ? 0 : 1) + wordLength;
+
+            boolean needsSpace = !currentLine.equals(Component.empty()) && !startsWithPunctuation(word);
+            int spaceNeeded = (needsSpace ? 1 : 0) + wordLength;
 
             if (currentLineLength + spaceNeeded > maxLineLength && !currentLine.equals(Component.empty())) {
                 lines.add(currentLine);
                 currentLine = Component.empty();
                 currentLineLength = 0;
+                needsSpace = false;
             }
 
-            if (!currentLine.equals(Component.empty())) {
+            if (needsSpace) {
                 currentLine = currentLine.append(Component.space());
                 currentLineLength++;
             }
@@ -193,6 +211,16 @@ public class Text implements Main {
         }
 
         return lines;
+    }
+
+    /**
+     * Checks if a word starts with punctuation that shouldn't have a space before it.
+     * @param word The word to check
+     * @return true if the word starts with punctuation
+     */
+    private static boolean startsWithPunctuation(ComponentWord word) {
+        String text = PlainTextComponentSerializer.plainText().serialize(word.component());
+        return !text.isEmpty() && ".,!?;:)]}".indexOf(text.charAt(0)) != -1;
     }
 
     /**
@@ -215,16 +243,15 @@ public class Text implements Main {
     private static void extractWordsRecursive(Component component, Style inheritedStyle, List<ComponentWord> words) {
         Style currentStyle = inheritedStyle.merge(component.style());
 
-
         if (component instanceof TextComponent textComponent) {
             String text = textComponent.content();
             if (!text.isEmpty()) {
+                String[] parts = text.split("\\s+");
 
-                String[] textWords = text.split("\\s+");
-                for (String word : textWords) {
-                    if (!word.isEmpty()) {
-                        Component wordComponent = Component.text(word).style(currentStyle);
-                        words.add(new ComponentWord(wordComponent, getVisibleLength(word)));
+                for (String part : parts) {
+                    if (!part.isEmpty()) {
+                        Component partComponent = Component.text(part).style(currentStyle);
+                        words.add(new ComponentWord(partComponent, getVisibleLength(part)));
                     }
                 }
             }
@@ -315,7 +342,7 @@ public class Text implements Main {
     private static boolean shouldRecolor(Component component) {
         Set<TextColor> colors = new HashSet<>();
         collectColors(component,colors);
-        return colors.size() > 1;
+        return colors.size() <= 1;
     }
 
     /**

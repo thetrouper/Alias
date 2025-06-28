@@ -6,7 +6,6 @@ import me.trouper.alias.server.commands.completions.CompletionNode;
 import net.kyori.adventure.text.Component;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
-import org.checkerframework.checker.units.qual.A;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -107,5 +106,15 @@ public interface QuickCommand extends TabExecutor, Main {
 
     default CommandRegistry getRegistry() {
         return this.getClass().getAnnotation(CommandRegistry.class);
+    }
+
+    default void disable() {
+        CommandRegistry registry = this.getClass().getAnnotation(CommandRegistry.class);
+        PluginCommand command = getPlugin().getCommand(registry.value());
+
+        if (command != null) {
+            command.setExecutor((sender, command1, label, args) -> true);
+            command.setTabCompleter((sender, command2, label, args) -> List.of());
+        }
     }
 }

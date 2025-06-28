@@ -2,24 +2,34 @@ package me.trouper.alias.server.events;
 
 import me.trouper.alias.server.systems.gui.QuickGui;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 public class GuiListener implements QuickListener {
 
-    @EventHandler
-    public void onInventoryClick(InventoryClickEvent e) {
-        QuickGui.handleClick(e);
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onInventoryClick(InventoryClickEvent event) {
+        QuickGui.handleClick(event);
     }
 
-    @EventHandler
-    public void onInventoryClose(InventoryCloseEvent e) {
-        QuickGui.handleClose(e);
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onInventoryClose(InventoryCloseEvent event) {
+        QuickGui.handleClose(event);
     }
 
-    @EventHandler
-    public void onInventoryDrag(InventoryDragEvent e) {
-        QuickGui.handleDrag(e);
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onInventoryDrag(InventoryDragEvent event) {
+        QuickGui.handleDrag(event);
     }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        QuickGui.getRegistries().values().forEach(gui -> {
+            gui.getViewers().remove(event.getPlayer());
+        });
+    }
+
 }

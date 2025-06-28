@@ -12,15 +12,17 @@ public class Common {
     private String flatPrefix;
     private boolean flat;
     private boolean debugMode;
+    private final String updateURL;
     private final Set<String> debuggerExclusions;
 
-    public Common(String packageName, int mainColor, int secondaryColor, String pluginName, String flatPrefix, boolean flat) {
+    public Common(String packageName, int mainColor, int secondaryColor, String pluginName, String flatPrefix, boolean flat, String updateURL) {
         this.packageName = packageName;
         this.mainColor = mainColor;
         this.secondaryColor = secondaryColor;
         this.pluginName = pluginName;
         this.flatPrefix = flatPrefix;
         this.flat = flat;
+        this.updateURL = updateURL;
         this.debugMode = false;
         this.debuggerExclusions = new HashSet<>();
     }
@@ -94,4 +96,7 @@ public class Common {
     }
 
 
+    public String getUpdateURL() {
+        return updateURL;
+    }
 }

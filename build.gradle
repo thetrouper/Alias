@@ -1,6 +1,5 @@
 plugins {
     id 'java'
-    id("xyz.jpenilla.run-paper") version "2.3.1"
     id 'maven-publish'
 }
 
@@ -23,12 +22,6 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
 }
 
-tasks {
-    runServer {
-        minecraftVersion("1.21.5")
-    }
-}
-
 def targetJavaVersion = 21
 java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
@@ -47,13 +40,9 @@ tasks.withType(JavaCompile).configureEach {
     }
 }
 
-processResources {
-    def props = [version: version]
-    inputs.properties props
-    filteringCharset 'UTF-8'
-    filesMatching('plugin.yml') {
-        expand props
-    }
+task sourcesJar(type: Jar) {
+    archiveClassifier.set('sources')
+    from sourceSets.main.allSource
 }
 
 publishing {
@@ -63,6 +52,8 @@ publishing {
             groupId = project.group
             artifactId = 'alias'
             version = project.version
+
+            artifact sourcesJar
         }
     }
     repositories {

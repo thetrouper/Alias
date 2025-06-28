@@ -5,7 +5,7 @@ import me.trouper.alias.server.AutoRegistrar;
 import me.trouper.alias.server.commands.QuickCommand;
 import me.trouper.alias.server.events.GuiListener;
 import me.trouper.alias.server.events.QuickListener;
-import me.trouper.alias.server.systems.AbstractWand;
+import me.trouper.alias.update.AutoUpdater;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class Alias extends JavaPlugin {
@@ -21,11 +21,19 @@ public final class Alias extends JavaPlugin {
         Alias.host = plugin.getClass();
         Alias.common = common;
 
-        new GuiListener().register();
+        AutoUpdater.checkUpdate(plugin,common);
+
         autoRegistrar = new AutoRegistrar(plugin);
+        autoRegistrar.getQuickListeners().add(new GuiListener());
         autoRegistrar.loadAll(common.getPackageName());
 
         enabled = true;
+    }
+
+    public static synchronized void stop(JavaPlugin plugin, Common common) {
+        autoRegistrar.getQuickListeners().forEach(QuickListener::unregister);
+        autoRegistrar.getQuickCommands().forEach(QuickCommand::disable);
+        AutoUpdater.checkUpdate(plugin,common);
     }
 
     public static Class<? extends JavaPlugin> getHost() {
