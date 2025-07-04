@@ -1,19 +1,27 @@
 package me.trouper.alias.utils;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.profile.PlayerTextures;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Function;
 
 public class ItemBuilder {
@@ -202,6 +210,78 @@ public class ItemBuilder {
         return this;
     }
 
+    public ItemBuilder playerHead(String playerName) {
+        ensurePlayerHead();
+        if (this.meta instanceof SkullMeta skullMeta) {
+            OfflinePlayer player = Bukkit.getOfflinePlayer(playerName);
+            skullMeta.setOwningPlayer(player);
+        }
+        return this;
+    }
+
+    public ItemBuilder playerHead(OfflinePlayer player) {
+        ensurePlayerHead();
+        if (this.meta instanceof SkullMeta skullMeta) {
+            skullMeta.setOwningPlayer(player);
+        }
+        return this;
+    }
+
+    public ItemBuilder playerHead(UUID uuid) {
+        ensurePlayerHead();
+        if (this.meta instanceof SkullMeta skullMeta) {
+            OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
+            skullMeta.setOwningPlayer(player);
+        }
+        return this;
+    }
+
+    public ItemBuilder skullTexture(String textureUrl) {
+        ensurePlayerHead();
+        if (this.meta instanceof SkullMeta skullMeta) {
+            try {
+                PlayerProfile profile = Bukkit.createProfile(UUID.randomUUID());
+                PlayerTextures textures = profile.getTextures();
+                textures.setSkin(new URL(textureUrl));
+                profile.setTextures(textures);
+                skullMeta.setPlayerProfile(profile);
+            } catch (MalformedURLException e) {
+                throw new IllegalArgumentException("Invalid texture URL: " + textureUrl, e);
+            }
+        }
+        return this;
+    }
+
+    public ItemBuilder skullProfile(PlayerProfile profile) {
+        ensurePlayerHead();
+        if (this.meta instanceof SkullMeta skullMeta) {
+            skullMeta.setPlayerProfile(profile);
+        }
+        return this;
+    }
+
+    public ItemBuilder createPlayerHead(String playerName, String displayName) {
+        return material(Material.PLAYER_HEAD)
+                .playerHead(playerName)
+                .displayName(displayName);
+    }
+
+    public ItemBuilder createCustomHead(String textureUrl, String displayName) {
+        return material(Material.PLAYER_HEAD)
+                .skullTexture(textureUrl)
+                .displayName(displayName);
+    }
+
+    private void ensurePlayerHead() {
+        if (this.stack.getType() != Material.PLAYER_HEAD) {
+            this.stack = this.stack.withType(Material.PLAYER_HEAD);
+            this.meta = this.stack.getItemMeta();
+            if (this.meta == null) {
+                throw new IllegalStateException("Failed to get SkullMeta after converting to player head");
+            }
+        }
+    }
+
     public ItemStack build() {
         this.stack.setItemMeta(this.meta);
         return this.stack.clone();
@@ -245,5 +325,15 @@ public class ItemBuilder {
 
     public static ItemBuilder of(ItemStack stack) {
         return create(stack);
+    }
+
+    public static ItemBuilder headOf(String playerName) {
+        return create(Material.PLAYER_HEAD)
+                .playerHead(playerName);
+    }
+
+    public static ItemBuilder headOfTexture(String url) {
+        return create(Material.PLAYER_HEAD)
+                .skullTexture(url);
     }
 }

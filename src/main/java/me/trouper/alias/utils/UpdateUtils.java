@@ -1,4 +1,4 @@
-package me.trouper.alias.update;
+package me.trouper.alias.utils;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -86,7 +86,6 @@ public class UpdateUtils {
         try {
             return "TRUE".equalsIgnoreCase(System.getenv("ALIAS_DEVELOPMENT"));
         } catch (Exception e) {
-            plugin.getLogger().warning("Could not determine runtime environment, assuming production.");
             return false;
         }
     }

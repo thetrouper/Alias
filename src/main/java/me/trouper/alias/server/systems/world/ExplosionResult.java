@@ -1,13 +1,12 @@
 package me.trouper.alias.server.systems.world;
 
-import me.trouper.alias.server.Main;
 import me.trouper.alias.server.systems.TaskManager;
 import org.bukkit.block.Block;
 
 import java.io.Closeable;
 import java.util.Set;
 
-public class ExplosionResult implements Closeable, Main {
+public class ExplosionResult implements Closeable {
     private State previousState;
     private TaskManager taskManager;
     private volatile boolean closed = false;

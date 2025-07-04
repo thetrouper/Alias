@@ -4,13 +4,14 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
 import org.bukkit.entity.Entity;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 
-public final class InventoryUtils {
+public class InventoryUtils {
 
     public static Inventory getInventory(Entity entity) {
-        if (entity instanceof org.bukkit.inventory.InventoryHolder inventoryHolder) {
+        if (entity instanceof InventoryHolder inventoryHolder) {
             return inventoryHolder.getInventory();
         }
         return null;

@@ -1,22 +1,28 @@
 package me.trouper.alias.server.systems;
 
-import me.trouper.alias.server.Main;
+import me.trouper.alias.AliasContext;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
-public class Verbose implements Main {
+public class Verbose {
+
+    private final AliasContext context;
+
+    public Verbose(AliasContext context) {
+        this.context = context;
+    }
 
     /**
-     * A dynamic verbose system which uses the format from the {@link Text} system.
+     * A Uses the format from the {@link Text} system.
      * @param backtrace The number of calls up the stacktrace to go.
      * @param verbose A message with 0 indexed curly brace placeholders. {0}, {1}, {2}...
      * @param args Qualified placeholder values.
      */
-    public static void send(int backtrace, String verbose, Object... args) {
-        if (!main.getCommon().getDebugMode()) return;
+    public void send(int backtrace, String verbose, Object... args) {
+        if (!context.getCommon().getDebugMode()) return;
         String callerInfo = "Unknown Caller";
 
         StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
@@ -28,20 +34,20 @@ public class Verbose implements Main {
             if (className.contains("-")) callerInfo = "Protected";
             else callerInfo = className + "." + caller.getMethodName();
 
-            if (main.getCommon().getDebuggerExclusions().contains(callerInfo)) return;
+            if (context.getCommon().getDebuggerExclusions().contains(callerInfo)) return;
         }
 
         Object[] processedArgs = processArgs(args);
-        Component message = Text.format(Text.Pallet.INFO, verbose, processedArgs);
-        message = Text.format(Text.Pallet.INFO,
+        Component message = context.getText().format(Text.Pallet.INFO, verbose, processedArgs);
+        message = context.getText().format(Text.Pallet.INFO,
                 Component.text("{0} [DEBUG ^ {1}] [{2}] » {3}"),
-                Component.text(main.getCommon().getPluginName()),
+                Component.text(context.getCommon().getPluginName()),
                 Component.text(backtrace),
                 Component.text(callerInfo),
                 message
         );
 
-        main.getPlugin().getComponentLogger().info(message);
+        context.getPlugin().getComponentLogger().info(message);
 
         for (Player operator : Bukkit.getOnlinePlayers()) {
             if (!operator.isOp()) continue;
@@ -50,15 +56,15 @@ public class Verbose implements Main {
     }
 
     /**
-     * A dynamic verbose system which uses the format from the {@link Text} system.
+     * Uses the format from the {@link Text} system.
      * @param verbose A message with 0 indexed curly brace placeholders. {0}, {1}, {2}...
      * @param args Qualified placeholder values.
      */
-    public static void send(String verbose, Object... args) {
+    public void send(String verbose, Object... args) {
         send(1,verbose,args);
     }
 
-    private static Object[] processArgs(Object... args) {
+    private Object[] processArgs(Object... args) {
         Object[] processed = new Object[args.length];
 
         for (int i = 0; i < args.length; i++) {

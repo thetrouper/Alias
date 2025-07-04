@@ -1,6 +1,5 @@
 package me.trouper.alias.server.systems.gui;
 
-import me.trouper.alias.server.Main;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -17,21 +16,18 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-public class QuickGui implements InventoryHolder, Main {
+public class QuickGui implements InventoryHolder {
 
     private static final Map<String, QuickGui> registry = new ConcurrentHashMap<>();
     private static final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private final Map<Integer, GuiAction> slotActions;
     private final Map<Integer, ItemStack> slotItems;
-    private final Map<Integer, BukkitTask> animations;
     private final GuiAction globalAction;
     private final GuiCreateAction createAction;
     private final GuiCloseAction closeAction;
@@ -62,7 +58,6 @@ public class QuickGui implements InventoryHolder, Main {
         this.clickSound = clickSound;
         this.soundVolume = soundVolume;
         this.soundPitch = soundPitch;
-        this.animations = new HashMap<>();
         this.viewers = ConcurrentHashMap.newKeySet();
     }
 
@@ -141,46 +136,6 @@ public class QuickGui implements InventoryHolder, Main {
         }
     }
 
-    public void startAnimation(int slot, List<ItemStack> frames, long interval) {
-        stopAnimation(slot);
-
-        if (frames.isEmpty()) return;
-
-        BukkitTask task = new BukkitRunnable() {
-            private int frameIndex = 0;
-
-            @Override
-            public void run() {
-                if (getInventory().getViewers().isEmpty()) {
-                    cancel();
-                    return;
-                }
-
-                ItemStack frame = frames.get(frameIndex);
-                getInventory().setItem(slot, frame);
-                frameIndex = (frameIndex + 1) % frames.size();
-            }
-        }.runTaskTimer(main.getPlugin(), 0L, interval);
-
-        animations.put(slot, task);
-    }
-
-    public void stopAnimation(int slot) {
-        BukkitTask task = animations.remove(slot);
-        if (task != null && !task.isCancelled()) {
-            task.cancel();
-        }
-    }
-
-    public void stopAllAnimations() {
-        animations.values().forEach(task -> {
-            if (!task.isCancelled()) {
-                task.cancel();
-            }
-        });
-        animations.clear();
-    }
-
     private int calculateSize() {
         if (size > 0 && size % 9 == 0) {
             return Math.min(size, 54);
@@ -231,10 +186,6 @@ public class QuickGui implements InventoryHolder, Main {
     private void onInventoryClose(InventoryCloseEvent event) {
         if (event.getPlayer() instanceof Player player) {
             viewers.remove(player);
-        }
-
-        if (viewers.isEmpty()) {
-            stopAllAnimations();
         }
 
         closeAction.onClose(this, event);

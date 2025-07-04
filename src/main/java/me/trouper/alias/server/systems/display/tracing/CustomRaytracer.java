@@ -1,5 +1,6 @@
-package me.trouper.alias.server.systems.tracing;
+package me.trouper.alias.server.systems.display.tracing;
 
+import me.trouper.alias.AliasContext;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -19,7 +20,13 @@ import java.util.Random;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
-public class CustomDisplayRaytracer {
+public class CustomRaytracer {
+
+    private final AliasContext context;
+
+    public CustomRaytracer(AliasContext context) {
+        this.context = context;
+    }
 
     public static final Predicate<Point> HIT_BLOCK = point -> {
         Block b = point.getBlock();
@@ -77,22 +84,22 @@ public class CustomDisplayRaytracer {
         return point -> HIT_BLOCK.test(point) && !point.getNearbyEntities(null, 5, true, 0.1, e -> e instanceof LivingEntity le && !le.isDead() && condition.test(e)).isEmpty();
     }
 
-    public static Point trace(Location start, Location end, Predicate<Point> hitCondition) {
+    public Point trace(Location start, Location end, Predicate<Point> hitCondition) {
         return trace(start, end, 0.5, hitCondition);
     }
 
-    public static Point trace(Location start, Location end, double interval, Predicate<Point> hitCondition) {
+    public Point trace(Location start, Location end, double interval, Predicate<Point> hitCondition) {
         Vector direction = end.toVector().subtract(start.toVector()).normalize();
         double distance = end.distance(start);
         return trace(start, direction, distance, interval, hitCondition);
     }
 
-    public static Point trace(Location start, Vector direction, double distance, Predicate<Point> hitCondition) {
+    public Point trace(Location start, Vector direction, double distance, Predicate<Point> hitCondition) {
         Vector normal = direction.clone().normalize();
         return trace(start, normal, distance, 0.5, hitCondition);
     }
 
-    public static Point trace(Location start, Vector direction, double distance, double interval, Predicate<Point> hitCondition) {
+    public Point trace(Location start, Vector direction, double distance, double interval, Predicate<Point> hitCondition) {
         if (interval < 0) throw new IllegalArgumentException("interval cannot be zero!");
         if (distance < 0) throw new IllegalArgumentException("distance cannot be zero!");
 
@@ -106,15 +113,14 @@ public class CustomDisplayRaytracer {
     }
 
 
-    public static BukkitTask traceDelayed(Plugin plugin, Location start, Vector direction, double distance, double interval, long tickDelay, int pointsPerTick, Predicate<Point> hitCondition) {
+    public BukkitTask traceDelayed(Location start, Vector direction, double distance, double interval, long tickDelay, int pointsPerTick, Predicate<Point> hitCondition) {
 
         if (interval <= 0) throw new IllegalArgumentException("interval cannot be zero or negative!");
         if (distance <= 0) throw new IllegalArgumentException("distance cannot be zero or negative!");
         if (tickDelay < 0) throw new IllegalArgumentException("tickDelay cannot be negative!");
 
         Vector normalizedDir = direction.clone().normalize();
-        
-        
+
         return new BukkitRunnable() {
             private double currentDistance = 0.0;
             private boolean hit = false;
@@ -139,33 +145,33 @@ public class CustomDisplayRaytracer {
                     currentDistance += interval;
                 }
             }
-        }.runTaskTimer(plugin, 0, tickDelay);
+        }.runTaskTimer(context.getPlugin(), 0, tickDelay);
     }
 
-    public static BukkitTask traceDelayed(Plugin plugin, Location start, Location end, double interval, long tickDelay, int pointsPerTick, Predicate<Point> hitCondition) {
+    public BukkitTask traceDelayed(Location start, Location end, double interval, long tickDelay, int pointsPerTick, Predicate<Point> hitCondition) {
         Vector direction = end.toVector().subtract(start.toVector()).normalize();
         double distance = start.distance(end);
-        return traceDelayed(plugin, start, direction, distance, interval, tickDelay,pointsPerTick, hitCondition);
+        return traceDelayed(start, direction, distance, interval, tickDelay,pointsPerTick, hitCondition);
     }
 
-    public static BukkitTask traceDelayed(Plugin plugin,
+    public BukkitTask traceDelayed(Plugin plugin,
                                           Location start,
                                           Location end,
                                           long tickDelay,
                                           Predicate<Point> hitCondition) {
-        return traceDelayed(plugin, start, end,0.5, tickDelay, 1, hitCondition);
+        return traceDelayed(start, end,0.5, tickDelay, 1, hitCondition);
     }
 
-    public static BukkitTask traceDelayed(Plugin plugin,
+    public BukkitTask traceDelayed(Plugin plugin,
                                           Location start,
                                           Vector direction,
                                           double distance,
                                           long tickDelay,
                                           Predicate<Point> hitCondition) {
-        return traceDelayed(plugin, start, direction, distance, 0.5, tickDelay,1, hitCondition);
+        return traceDelayed(start, direction, distance, 0.5, tickDelay,1, hitCondition);
     }
 
-    public static Point traceWithReflection(Location start, Vector direction, double distance, double interval,
+    public Point traceWithReflection(Location start, Vector direction, double distance, double interval,
                                             int maxReflections, Predicate<Point> hitCondition,
                                             BiPredicate<Point, Block> blockReflectCondition,
                                             BiPredicate<Point, Entity> entityReflectCondition) {
@@ -236,25 +242,23 @@ public class CustomDisplayRaytracer {
                 }
 
                 if (i + interval >= remainingDistance) {
-                    Point finalPoint = blocksInFrontOf(currentLocation, currentDirection, remainingDistance, true);
-                    return finalPoint;
+                    return blocksInFrontOf(currentLocation, currentDirection, remainingDistance, true);
                 }
             }
 
             if (reflections > maxReflections) {
-                Point finalPoint = blocksInFrontOf(currentLocation, currentDirection, remainingDistance, true);
-                return finalPoint;
+                return blocksInFrontOf(currentLocation, currentDirection, remainingDistance, true);
             }
         }
 
         return blocksInFrontOf(start, normalizedDir, distance, true);
     }
     
-    private static Vector glanceReflect(Vector incident) {
+    private Vector glanceReflect(Vector incident) {
         return offsetVector(incident,4).multiply(-1);
     }
 
-    private static BlockFace traceBlockFace(Location startLocation, Vector direction, double maxDistance) {
+    private BlockFace traceBlockFace(Location startLocation, Vector direction, double maxDistance) {
         Predicate<Block> blockPredicate = block -> true;
         Predicate<Entity> entityPredicate = entity -> false;
 
@@ -267,7 +271,7 @@ public class CustomDisplayRaytracer {
         return null;
     }
 
-    private static Vector calculateReflection(Vector incident, Vector normal) {
+    private Vector calculateReflection(Vector incident, Vector normal) {
         // r = i - 2(i dot n)n
         double dot = incident.dot(normal);
         Vector reflection = incident.clone().subtract(normal.clone().multiply(2 * dot));
@@ -275,7 +279,7 @@ public class CustomDisplayRaytracer {
         return reflection.normalize();
     }
     
-    private static Vector getFaceNormal(BlockFace face) {
+    private Vector getFaceNormal(BlockFace face) {
         return switch (face) {
             case DOWN -> new Vector(0, -1, 0);
             case NORTH -> new Vector(0, 0, -1);
@@ -286,12 +290,12 @@ public class CustomDisplayRaytracer {
         };
     }
 
-    public static Point blocksInFrontOf(Location loc, Vector dir, double blocks, boolean missed) {
+    public Point blocksInFrontOf(Location loc, Vector dir, double blocks, boolean missed) {
         Vector normal = dir.clone().normalize();
         return new Point(loc.clone().add(normal.getX() * blocks, normal.getY() * blocks, normal.getZ() * blocks), blocks, missed);
     }
 
-    public static Vector offsetVector(Vector original, double angleDegrees) {
+    private Vector offsetVector(Vector original, double angleDegrees) {
         Random random = new Random();
         original = original.clone().normalize();
 

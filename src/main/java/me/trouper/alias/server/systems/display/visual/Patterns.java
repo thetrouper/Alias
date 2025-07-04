@@ -1,6 +1,6 @@
-package me.trouper.alias.server.systems.visual;
+package me.trouper.alias.server.systems.display.visual;
 
-import me.trouper.alias.server.Main;
+import me.trouper.alias.AliasContext;
 import me.trouper.alias.utils.misc.Randomizer;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -16,22 +16,28 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public class DisplayUtils implements Main {
+public class Patterns {
 
     // This will 100% get Javadoc in the future when I try to use it. Everything in here is so convoluted.
 
-    public static final Function<Particle, Consumer<Location>> PARTICLE_FACTORY = particle -> l -> l.getWorld().spawnParticle(particle, l, 1, 0, 0, 0, 0);
+    private final AliasContext context;
 
-    public static final BiFunction<Color, Float, Consumer<Location>> DUST_PARTICLE_FACTORY = (color, thickness) -> {
+    public final Function<Particle, Consumer<Location>> PARTICLE_FACTORY = particle -> l -> l.getWorld().spawnParticle(particle, l, 1, 0, 0, 0, 0);
+
+    public final BiFunction<Color, Float, Consumer<Location>> DUST_PARTICLE_FACTORY = (color, thickness) -> {
         Particle.DustOptions dust = new Particle.DustOptions(color, thickness);
         return l -> l.getWorld().spawnParticle(Particle.DUST, l, 1, 0, 0, 0, 0, dust);
     };
 
-    public static void ring(Location loc, double radius, Color color, float thickness) {
+    public Patterns(AliasContext context) {
+        this.context = context;
+    }
+
+    public void ring(Location loc, double radius, Color color, float thickness) {
         ring(loc, radius, DUST_PARTICLE_FACTORY.apply(color, thickness));
     }
 
-    public static void sphere(Location center, double radius, double pointDistance, Consumer<Location> action) {
+    public void sphere(Location center, double radius, double pointDistance, Consumer<Location> action) {
         double dPhi = pointDistance / radius;
 
         for (double phi = 0.0; phi <= Math.PI; phi += dPhi) {
@@ -55,10 +61,10 @@ public class DisplayUtils implements Main {
         }
     }
     
-    public static void sphereWave(Location center, double maxRadius, double radialStep, double maxDistanceBetweenPoints, Consumer<Location> action) {
+    public void sphereWave(Location center, double maxRadius, double radialStep, double maxDistanceBetweenPoints, Consumer<Location> action) {
         AtomicReference<Double> currentRadius = new AtomicReference<>(radialStep);
 
-        Bukkit.getScheduler().runTaskTimer(main.getPlugin(), (task) -> {
+        Bukkit.getScheduler().runTaskTimer(context.getPlugin(), (task) -> {
             double r = currentRadius.get();
             if (r > maxRadius) {
                 task.cancel();
@@ -70,7 +76,7 @@ public class DisplayUtils implements Main {
         }, 0L, 1L);
     }
 
-    public static void ring(Location loc, double radius, Consumer<Location> action) {
+    public void ring(Location loc, double radius, Consumer<Location> action) {
         for (int theta = 0; theta < 360; theta += 10) {
             double x = Math.cos(Math.toRadians(theta)) * radius;
             double z = Math.sin(Math.toRadians(theta)) * radius;
@@ -79,17 +85,17 @@ public class DisplayUtils implements Main {
         }
     }
 
-    public static void ring(Location loc, double radius, double maxDistanceBetweenPoints, Consumer<Location> action) {
+    public void ring(Location loc, double radius, double maxDistanceBetweenPoints, Consumer<Location> action) {
         arc(loc, radius, 0, 360, maxDistanceBetweenPoints, action);
     }
 
-    public static void wave(Location loc, double radius, Color color, float thickness, double gap) {
+    public void wave(Location loc, double radius, Color color, float thickness, double gap) {
         wave(loc, radius, DUST_PARTICLE_FACTORY.apply(color, thickness), gap);
     }
 
-    public static void wave(Location loc, double radius, Consumer<Location> action, double gap) {
+    public void wave(Location loc, double radius, Consumer<Location> action, double gap) {
         AtomicReference<Double> i = new AtomicReference<>(gap);
-        Bukkit.getScheduler().runTaskTimer(main.getPlugin(), (task) -> {
+        Bukkit.getScheduler().runTaskTimer(context.getPlugin(), (task) -> {
             if (i.get() >= radius) {
                 task.cancel();
                 return;
@@ -99,9 +105,9 @@ public class DisplayUtils implements Main {
         }, 0, 1);
     }
 
-    public static void wave(Location loc, double radius, double radialGap, double maxDistanceBetweenPoints, Consumer<Location> action) {
+    public void wave(Location loc, double radius, double radialGap, double maxDistanceBetweenPoints, Consumer<Location> action) {
         AtomicReference<Double> r = new AtomicReference<>(radialGap);
-        Bukkit.getScheduler().runTaskTimer(main.getPlugin(), (task) -> {
+        Bukkit.getScheduler().runTaskTimer(context.getPlugin(), (task) -> {
             if (r.get() > radius) {
                 task.cancel();
                 return;
@@ -111,19 +117,19 @@ public class DisplayUtils implements Main {
         }, 0, 1);
     }
 
-    public static void disc(Location loc, double radius, Consumer<Location> action, double gap) {
+    public void disc(Location loc, double radius, Consumer<Location> action, double gap) {
         for (double i = gap; i < radius; i += gap) {
             ring(loc, i, action);
         }
     }
 
-    public static void disc(Location loc, double radius, double radialGap, double maxDistanceBetweenPoints, Consumer<Location> action) {
+    public void disc(Location loc, double radius, double radialGap, double maxDistanceBetweenPoints, Consumer<Location> action) {
         for (double r = radialGap; r <= radius; r += radialGap) {
             ring(loc, r, maxDistanceBetweenPoints, action);
         }
     }
 
-    public static void helix(Location loc, double radius, Consumer<Location> action, double gap, int height) {
+    public void helix(Location loc, double radius, Consumer<Location> action, double gap, int height) {
         int theta = 0;
         for (double y = 0; y <= height; y += gap) {
             double x = Math.cos(Math.toRadians(theta)) * radius;
@@ -135,7 +141,7 @@ public class DisplayUtils implements Main {
         }
     }
 
-    public static void vortex(Location loc, double radius, Consumer<Location> action, double gapH, double gapV, int height) {
+    public void vortex(Location loc, double radius, Consumer<Location> action, double gapH, double gapV, int height) {
         double r = radius;
         int theta = 0;
         for (double y = 0; y <= height; y += gapV) {
@@ -149,14 +155,14 @@ public class DisplayUtils implements Main {
         }
     }
 
-    public static void beam(Location loc, Consumer<Location> action, double gap, int height) {
+    public void beam(Location loc, Consumer<Location> action, double gap, int height) {
         for (double y = 0; y <= height; y += gap) {
             Location newLoc = loc.clone().add(0, y, 0);
             action.accept(newLoc);
         }
     }
 
-    public static void arc(Location loc, double radius, int angleFrom, int angleTo, Consumer<Location> action) {
+    public void arc(Location loc, double radius, int angleFrom, int angleTo, Consumer<Location> action) {
         for (int theta = angleFrom; theta < angleTo; theta += 10) {
             double x = Math.cos(Math.toRadians(theta)) * radius;
             double z = Math.sin(Math.toRadians(theta)) * radius;
@@ -165,7 +171,7 @@ public class DisplayUtils implements Main {
         }
     }
 
-    public static void arc(Location loc, double radius, int angleFrom, int angleTo, double maxDistanceBetweenPoints, Consumer<Location> action) {
+    public void arc(Location loc, double radius, int angleFrom, int angleTo, double maxDistanceBetweenPoints, Consumer<Location> action) {
         int angleSpan = angleTo - angleFrom;
         if (angleSpan <= 0) return;
 
@@ -182,23 +188,23 @@ public class DisplayUtils implements Main {
     }
 
 
-    public static void fan(Location loc, double radius, int angleFrom, int angleTo, Consumer<Location> action, double gap) {
+    public void fan(Location loc, double radius, int angleFrom, int angleTo, Consumer<Location> action, double gap) {
         for (double i = gap; i < radius; i += gap) {
             arc(loc, i, angleFrom, angleTo, action);
         }
     }
 
-    public static void fan(Location loc, double radius, int angleFrom, int angleTo, double maxDistanceBetweenPoints, Consumer<Location> action, double radialGap) {
+    public void fan(Location loc, double radius, int angleFrom, int angleTo, double maxDistanceBetweenPoints, Consumer<Location> action, double radialGap) {
         for (double r = radialGap; r < radius; r += radialGap) {
             arc(loc, r, angleFrom, angleTo, maxDistanceBetweenPoints, action);
         }
     }
 
 
-    public static void fanWave(Location loc, double radius, int sections, Consumer<Location> action, double gap) {
+    public void fanWave(Location loc, double radius, int sections, Consumer<Location> action, double gap) {
         double arcLength = 360.0 / sections;
         AtomicReference<Double> i = new AtomicReference<>(0.0);
-        Bukkit.getScheduler().runTaskTimer(main.getPlugin(), (task) -> {
+        Bukkit.getScheduler().runTaskTimer(context.getPlugin(), (task) -> {
             if (i.get() >= 360) {
                 task.cancel();
                 return;
@@ -209,7 +215,7 @@ public class DisplayUtils implements Main {
         }, 0, 5);
     }
 
-    public static void fanWaveRandom(Location loc, double radius, int sections, Consumer<Location> action, double gap) {
+    public void fanWaveRandom(Location loc, double radius, int sections, Consumer<Location> action, double gap) {
         double arcLength = 360.0 / sections;
         List<Double> ints = new ArrayList<>();
         for (double start = 0; start < 360; start += arcLength) {
@@ -218,7 +224,7 @@ public class DisplayUtils implements Main {
 
         AtomicInteger i = new AtomicInteger(0);
         Randomizer random = new Randomizer();
-        Bukkit.getScheduler().runTaskTimer(main.getPlugin(), (task) -> {
+        Bukkit.getScheduler().runTaskTimer(context.getPlugin(), (task) -> {
             if (i.get() >= sections) {
                 task.cancel();
                 return;
@@ -230,9 +236,9 @@ public class DisplayUtils implements Main {
         }, 0, 5);
     }
 
-    public static void waveFan(Location loc, double radius, int angleFrom, int angleTo, double maxDistanceBetweenPoints, Consumer<Location> action, double radialGap) {
+    public void waveFan(Location loc, double radius, int angleFrom, int angleTo, double maxDistanceBetweenPoints, Consumer<Location> action, double radialGap) {
         AtomicReference<Double> r = new AtomicReference<>(radialGap);
-        Bukkit.getScheduler().runTaskTimer(main.getPlugin(), (task) -> {
+        Bukkit.getScheduler().runTaskTimer(context.getPlugin(), (task) -> {
             if (r.get() >= radius) {
                 task.cancel();
                 return;
@@ -242,7 +248,7 @@ public class DisplayUtils implements Main {
         }, 0, 1);
     }
 
-    public static void waveFan(Location loc, double radius, Vector direction, int angle, double maxDistanceBetweenPoints, Consumer<Location> action, double radialGap) {
+    public void waveFan(Location loc, double radius, Vector direction, int angle, double maxDistanceBetweenPoints, Consumer<Location> action, double radialGap) {
         double baseAngle = Math.toDegrees(Math.atan2(direction.getZ(), direction.getX()));
         int angleFrom = (int) (baseAngle - angle / 2.0);
         int angleTo = (int) (baseAngle + angle / 2.0);

@@ -1,6 +1,6 @@
 package me.trouper.alias.server.systems.world;
 
-import me.trouper.alias.server.systems.burning.BurnOptions;
+import me.trouper.alias.server.systems.world.burning.BurnOptions;
 
 public class ExplosionOptions {
     private double coreRadius = 3.0;

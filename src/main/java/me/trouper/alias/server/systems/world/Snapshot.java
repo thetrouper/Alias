@@ -1,7 +1,5 @@
 package me.trouper.alias.server.systems.world;
 
-import me.trouper.alias.server.Main;
-import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.inventory.Inventory;
@@ -50,29 +48,27 @@ public class Snapshot {
     public void restore(Block block) {
         if (block == null || state == null) return;
 
-        Bukkit.getScheduler().runTask(Main.main.getPlugin(), () -> {
-            try {
-                block.setBlockData(state.getBlockData());
+        try {
+            block.setBlockData(state.getBlockData());
 
-                if (inventory != null && block.getState() instanceof InventoryHolder) {
-                    InventoryHolder holder = (InventoryHolder) block.getState();
-                    Inventory inv = holder.getInventory();
+            if (inventory != null && block.getState() instanceof InventoryHolder) {
+                InventoryHolder holder = (InventoryHolder) block.getState();
+                Inventory inv = holder.getInventory();
 
-                    inv.clear();
+                inv.clear();
 
-                    for (Map.Entry<Integer, ItemStack> entry : inventory.entrySet()) {
-                        int slot = entry.getKey();
-                        ItemStack item = entry.getValue();
+                for (Map.Entry<Integer, ItemStack> entry : inventory.entrySet()) {
+                    int slot = entry.getKey();
+                    ItemStack item = entry.getValue();
 
-                        if (slot >= 0 && slot < inv.getSize() && item != null) {
-                            inv.setItem(slot, item.clone());
-                        }
+                    if (slot >= 0 && slot < inv.getSize() && item != null) {
+                        inv.setItem(slot, item.clone());
                     }
                 }
-            } catch (Exception e) {
-                System.err.println("Failed to restore block at " + block.getLocation() + ": " + e.getMessage());
             }
-        });
+        } catch (Exception e) {
+            System.err.println("Failed to restore block at " + block.getLocation() + ": " + e.getMessage());
+        }
     }
 
     public BlockState getState() {

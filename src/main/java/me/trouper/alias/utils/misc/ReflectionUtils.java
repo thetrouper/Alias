@@ -3,7 +3,6 @@ package me.trouper.alias.utils.misc;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
-import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.jar.JarEntry;

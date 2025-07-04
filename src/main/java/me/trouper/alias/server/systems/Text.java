@@ -1,7 +1,6 @@
 package me.trouper.alias.server.systems;
 
-import me.trouper.alias.Alias;
-import me.trouper.alias.server.Main;
+import me.trouper.alias.AliasContext;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.ComponentLike;
@@ -18,8 +17,12 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 
-public class Text implements Main {
+public class Text {
+    private final AliasContext context;
 
+    public Text(AliasContext context) {
+        this.context = context;
+    }
     /**
      * Messages an audience applying pallet formatting to the text and placeholders. Placeholders are zero-indexed and curly braced. {0}, {1}, {2}...
      * Supports both flat messages and fancy wrapped messages based on Alias configuration.
@@ -29,7 +32,7 @@ public class Text implements Main {
      * @param text The message to format
      * @param args Qualified placeholders to color.
      */
-    public static void messageAny(Pallet pallet, boolean playSound, Audience audience, String text, Object... args) {
+    public void messageAny(Pallet pallet, boolean playSound, Audience audience, String text, Object... args) {
         message(
                 pallet,
                 playSound,
@@ -49,7 +52,7 @@ public class Text implements Main {
      * @param text The message to format
      * @param args Qualified placeholders to color.
      */
-    public static void messageAny(Pallet pallet, Audience audience, String text, Object... args) {
+    public void messageAny(Pallet pallet, Audience audience, String text, Object... args) {
         messageAny(pallet,true,audience,text,args);
     }
 
@@ -63,7 +66,7 @@ public class Text implements Main {
      * @param text The component message to format
      * @param args Qualified placeholders to color.
      */
-    public static void message(Pallet pallet, boolean playSound, Audience audience, ComponentLike text, ComponentLike... args) {
+    public void message(Pallet pallet, boolean playSound, Audience audience, ComponentLike text, ComponentLike... args) {
         Component message = getMessage(pallet, text, args);
         audience.sendMessage(message);
         if (playSound && audience instanceof Player p) p.playSound(p.getLocation(), pallet.sound.sound, SoundCategory.VOICE, 10f, pallet.sound.pitch);
@@ -78,7 +81,7 @@ public class Text implements Main {
      * @param text The component message to format
      * @param args Qualified placeholders to color.
      */
-    public static void message(Pallet pallet, Audience audience, ComponentLike text, ComponentLike... args) {
+    public void message(Pallet pallet, Audience audience, ComponentLike text, ComponentLike... args) {
         message(pallet,true,audience,text,args);
     }
 
@@ -89,7 +92,7 @@ public class Text implements Main {
      * @param args Qualified placeholders to color.
      * @return The final component, formatted according to flat/fancy setting.
      */
-    public static Component getMessageAny(Pallet pallet, String text, Object... args) {
+    public Component getMessageAny(Pallet pallet, String text, Object... args) {
         return getMessage(
                 pallet,
                 color(text),
@@ -108,10 +111,10 @@ public class Text implements Main {
      * @param args Qualified placeholders to color.
      * @return The final component, formatted according to flat/fancy setting.
      */
-    public static Component getMessage(Pallet pallet, ComponentLike text, ComponentLike... args) {
+    public Component getMessage(Pallet pallet, ComponentLike text, ComponentLike... args) {
         Component formattedMessage = format(pallet, text, args);
 
-        if (main.getCommon().useFlat()) {
+        if (context.getCommon().useFlat()) {
             return formatFlatMessage(formattedMessage);
         } else {
             return formatFancyMessage(formattedMessage);
@@ -123,8 +126,8 @@ public class Text implements Main {
      * @param message The formatted message component
      * @return The message with flat prefix applied
      */
-    private static Component formatFlatMessage(Component message) {
-        Component prefix = color(main.getCommon().getFlatPrefix());
+    private Component formatFlatMessage(Component message) {
+        Component prefix = color(context.getCommon().getFlatPrefix());
         return prefix.append(message);
     }
 
@@ -134,8 +137,8 @@ public class Text implements Main {
      * @param message The formatted message component
      * @return The message with fancy formatting and line wrapping
      */
-    private static Component formatFancyMessage(Component message) {
-        List<Component> wrappedLines = wrapComponent(message, 50, (int) Math.round((main.getCommon().getPluginName().length() + 3) * 1.3));
+    private Component formatFancyMessage(Component message) {
+        List<Component> wrappedLines = wrapComponent(message, 50, (int) Math.round((context.getCommon().getPluginName().length() + 3) * 1.3));
         // 50 is slightly below the average character width of someone's minecraft chat. The 3 is to account for the bolded "| " and the 1.3 is to account for bolding the plugin name.
         if (wrappedLines.isEmpty()) {
             wrappedLines.add(Component.empty());
@@ -144,15 +147,15 @@ public class Text implements Main {
         Component result = Component.empty().appendNewline();
 
         Component firstLine = Component.empty()
-                .append(Component.text("| ", TextColor.color(main.getCommon().getSecondaryColor())).decorate(TextDecoration.BOLD))
-                .append(Component.text(main.getCommon().getPluginName() + " ", TextColor.color(main.getCommon().getMainColor()), TextDecoration.BOLD))
+                .append(Component.text("| ", TextColor.color(context.getCommon().getSecondaryColor())).decorate(TextDecoration.BOLD))
+                .append(Component.text(context.getCommon().getPluginName() + " ", TextColor.color(context.getCommon().getMainColor()), TextDecoration.BOLD))
                 .append(wrappedLines.get(0));
 
         result = result.append(firstLine);
 
         for (int i = 1; i < wrappedLines.size(); i++) {
             Component line = Component.empty()
-                    .append(Component.text("| ", TextColor.color(main.getCommon().getSecondaryColor())).decorate(TextDecoration.BOLD))
+                    .append(Component.text("| ", TextColor.color(context.getCommon().getSecondaryColor())).decorate(TextDecoration.BOLD))
                     .append(wrappedLines.get(i));
 
             result = result.appendNewline().append(line);
@@ -170,7 +173,7 @@ public class Text implements Main {
      * @param firstLineOffset Offset for the first line (plugin name length)
      * @return List of wrapped component lines
      */
-    private static List<Component> wrapComponent(Component component, int maxLineLength, int firstLineOffset) {
+    private List<Component> wrapComponent(Component component, int maxLineLength, int firstLineOffset) {
         List<Component> lines = new ArrayList<>();
 
         List<ComponentWord> words = extractWords(component);
@@ -218,7 +221,7 @@ public class Text implements Main {
      * @param word The word to check
      * @return true if the word starts with punctuation
      */
-    private static boolean startsWithPunctuation(ComponentWord word) {
+    private boolean startsWithPunctuation(ComponentWord word) {
         String text = PlainTextComponentSerializer.plainText().serialize(word.component());
         return !text.isEmpty() && ".,!?;:)]}".indexOf(text.charAt(0)) != -1;
     }
@@ -228,7 +231,7 @@ public class Text implements Main {
      * @param component The component to extract words from
      * @return List of ComponentWord objects
      */
-    private static List<ComponentWord> extractWords(Component component) {
+    private List<ComponentWord> extractWords(Component component) {
         List<ComponentWord> words = new ArrayList<>();
         extractWordsRecursive(component, Style.empty(), words);
         return words;
@@ -240,7 +243,7 @@ public class Text implements Main {
      * @param inheritedStyle The style inherited from parent components
      * @param words The list to add words to
      */
-    private static void extractWordsRecursive(Component component, Style inheritedStyle, List<ComponentWord> words) {
+    private void extractWordsRecursive(Component component, Style inheritedStyle, List<ComponentWord> words) {
         Style currentStyle = inheritedStyle.merge(component.style());
 
         if (component instanceof TextComponent textComponent) {
@@ -267,7 +270,7 @@ public class Text implements Main {
      * @param text The text to measure
      * @return The visible character count
      */
-    private static int getVisibleLength(String text) {
+    private int getVisibleLength(String text) {
         return PlainTextComponentSerializer.plainText().serialize(Component.text(text)).length();
     }
 
@@ -276,7 +279,7 @@ public class Text implements Main {
      * @param msg the legacy text
      * @return The deserialized component
      */
-    public static Component color(String msg) {
+    public Component color(String msg) {
         if (msg.contains("§")) return LegacyComponentSerializer.legacySection().deserialize(msg);
         return LegacyComponentSerializer.legacyAmpersand().deserialize(msg);
     }
@@ -286,7 +289,7 @@ public class Text implements Main {
      * @param ampersands String with ampersand codes
      * @return String with section codes
      */
-    public static String legacyAmpersandColor(String ampersands) {
+    public String legacyAmpersandColor(String ampersands) {
         return ampersands.replaceAll("&","§");
     }
 
@@ -297,7 +300,7 @@ public class Text implements Main {
      * @param args Arguments to replace placeholders
      * @return Formatted component
      */
-    public static Component format(Pallet pallet, String text, Object... args) {
+    public Component format(Pallet pallet, String text, Object... args) {
         return format(pallet, Component.text(text), Arrays.stream(args).map(arg->Component.text(arg.toString())).toArray(Component[]::new));
     }
 
@@ -309,7 +312,7 @@ public class Text implements Main {
      * @param args Argument components to replace placeholders
      * @return Formatted component with colors applied
      */
-    public static Component format(Pallet pallet, ComponentLike text, ComponentLike... args) {
+    public Component format(Pallet pallet, ComponentLike text, ComponentLike... args) {
         Component resultComponent = text.asComponent().color(pallet.mainText);
 
         if (args == null || args.length == 0) {
@@ -339,7 +342,7 @@ public class Text implements Main {
      * @param component The component to check.
      * @return Currently always returns true, indicating recoloring should occur.
      */
-    private static boolean shouldRecolor(Component component) {
+    private boolean shouldRecolor(Component component) {
         Set<TextColor> colors = new HashSet<>();
         collectColors(component,colors);
         return colors.size() <= 1;
@@ -350,7 +353,7 @@ public class Text implements Main {
      * @param component The component to collect.
      * @param colors A mutable HashSet of colors.
      */
-    private static void collectColors(Component component, Set<TextColor> colors) {
+    private void collectColors(Component component, Set<TextColor> colors) {
         if (component.color() != null) {
             colors.add(component.color());
         }
@@ -364,7 +367,7 @@ public class Text implements Main {
      * @param input The input string
      * @return String with color codes removed
      */
-    public static String removeColors(String input) {
+    public String removeColors(String input) {
         if (input == null) return null;
 
         input = input.replaceAll("(?i)[&§][0-9a-fk-or]", ""); // Legacy colors
@@ -379,7 +382,7 @@ public class Text implements Main {
      * @param input The input component
      * @return Component with plain text only
      */
-    public static Component removeColors(ComponentLike input) {
+    public Component removeColors(ComponentLike input) {
         if (input == null) return Component.text("");
 
         String plainText = PlainTextComponentSerializer.plainText().serialize(input.asComponent());
@@ -392,7 +395,7 @@ public class Text implements Main {
      * @param argIndex The argument index (0-indexed)
      * @return The appropriate TextColor for the argument
      */
-    private static TextColor getArgColor(Pallet pallet, int argIndex) {
+    private TextColor getArgColor(Pallet pallet, int argIndex) {
         return switch (argIndex) {
             case 1 -> pallet.arg2;
             case 2 -> pallet.arg3;
@@ -403,52 +406,49 @@ public class Text implements Main {
     /**
      * Represents a word extracted from a component with its formatting preserved.
      */
-    private static record ComponentWord(Component component, int visibleLength) {}
+    private record ComponentWord(Component component, int visibleLength) {}
 
-    /**
-     * Color pallets for different message types with appropriate colors and sounds.
-     */
     public enum Pallet {
         ERROR(
-                TextColor.color(0xD3A6A4),  // Soft red for main text
-                TextColor.color(0xFFF1AE),  // Light yellow for default args
-                TextColor.color(0xFF796D),  // Coral for second arg
-                TextColor.color(0xC62828),  // Dark red for third arg
+                TextColor.color(0xD3A6A4),  
+                TextColor.color(0xFFF1AE),  
+                TextColor.color(0xFF796D),  
+                TextColor.color(0xC62828),  
                 new SoundData(Sound.BLOCK_NOTE_BLOCK_BASS, 1)
         ),
         WARNING(
-                TextColor.color(0xFFF3CD),  // Light yellow for main text
-                TextColor.color(0xFFF9F5),  // Very light cream for default args
-                TextColor.color(0xFFD54F),  // Gold for second arg
-                TextColor.color(0xFFA000),  // Orange for third arg
+                TextColor.color(0xFFF3CD),  
+                TextColor.color(0xFFF9F5),  
+                TextColor.color(0xFFD54F),  
+                TextColor.color(0xFFA000),  
                 new SoundData(Sound.BLOCK_NOTE_BLOCK_BIT, 0.5F)
         ),
         INFO(
-                TextColor.color(0xBBDEFB),  // Light blue for main text
-                TextColor.color(0xD2D0EA),  // Light lavender for default args
-                TextColor.color(0x64B5F6),  // Medium blue for second arg
-                TextColor.color(0x1976D2),  // Dark blue for third arg
+                TextColor.color(0xBBDEFB),  
+                TextColor.color(0xD2D0EA),  
+                TextColor.color(0x64B5F6),  
+                TextColor.color(0x1976D2),  
                 new SoundData(Sound.BLOCK_NOTE_BLOCK_CHIME, 0.7F)
         ),
         SUCCESS(
-                TextColor.color(0xCDFFC7),  // Light green for main text
-                TextColor.color(0xFFFFFF),  // White for default args
-                TextColor.color(0xB0FFE3),  // Light mint for second arg
-                TextColor.color(0x63CD83),  // Medium green for third arg
+                TextColor.color(0xCDFFC7),  
+                TextColor.color(0xFFFFFF),  
+                TextColor.color(0xB0FFE3),  
+                TextColor.color(0x63CD83),  
                 new SoundData(Sound.BLOCK_NOTE_BLOCK_PLING, 1.5F)
         ),
         NEUTRAL(
-                TextColor.color(0xD3D3D3),  // Light gray for main text
-                TextColor.color(0xFFFFFF),  // White for default args
-                TextColor.color(0xFFB3F8),  // Light pink for second arg
-                TextColor.color(0xE280FF),  // Purple for third arg
+                TextColor.color(0xD3D3D3),  
+                TextColor.color(0xFFFFFF),  
+                TextColor.color(0xFFB3F8),  
+                TextColor.color(0xE280FF),  
                 new SoundData(Sound.BLOCK_NOTE_BLOCK_BELL, 1)
         ),
         LOCATION(
-                TextColor.color(0xAAAAAA),  // Gray for main text
-                TextColor.color(0xFFB0C1),  // Light pink for default args
-                TextColor.color(0xB6F5B6),  // Light green for second arg
-                TextColor.color(0xB0C1FF),  // Light blue for third arg
+                TextColor.color(0xAAAAAA),  
+                TextColor.color(0xFFB0C1),  
+                TextColor.color(0xB6F5B6),  
+                TextColor.color(0xB0C1FF),  
                 new SoundData(Sound.UI_TOAST_IN, 2)
         );
 

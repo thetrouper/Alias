@@ -1,4 +1,4 @@
-package me.trouper.alias.server.systems.tracing;
+package me.trouper.alias.server.systems.display.tracing;
 
 import org.bukkit.Location;
 import org.bukkit.World;

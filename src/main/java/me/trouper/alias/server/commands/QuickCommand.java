@@ -1,6 +1,6 @@
 package me.trouper.alias.server.commands;
 
-import me.trouper.alias.server.Main;
+import me.trouper.alias.server.ContextAware;
 import me.trouper.alias.server.commands.completions.CompletionBuilder;
 import me.trouper.alias.server.commands.completions.CompletionNode;
 import net.kyori.adventure.text.Component;
@@ -12,8 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-public interface QuickCommand extends TabExecutor, Main {
-
+public interface QuickCommand extends TabExecutor, ContextAware {
 
     void handleCommand(CommandSender sender, Command command, String label, Args args);
     void handleCompletion(CommandSender sender, Command command, String label, Args args, CompletionBuilder b);
@@ -23,6 +22,7 @@ public interface QuickCommand extends TabExecutor, Main {
         PluginCommand command = getPlugin().getCommand(registry.value());
 
         if (command != null) {
+            getPlugin().getLogger().info("Registering Command from " + this.getClass().getSimpleName());
             command.setExecutor(this);
             command.setTabCompleter(this);
         }

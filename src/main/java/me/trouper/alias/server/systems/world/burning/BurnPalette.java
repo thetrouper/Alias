@@ -1,4 +1,4 @@
-package me.trouper.alias.server.systems.burning;
+package me.trouper.alias.server.systems.world.burning;
 
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -30,7 +30,6 @@ public class BurnPalette {
     private final List<BlockData> burnWaveTrail;
 
     public BurnPalette() {
-        // Initialize burn wave trail
         this.burnWaveTrail = Arrays.asList(
                 Material.ORANGE_STAINED_GLASS.createBlockData(),
                 Material.BLACK_STAINED_GLASS.createBlockData(),
@@ -38,7 +37,6 @@ public class BurnPalette {
                 Material.LIGHT_GRAY_STAINED_GLASS.createBlockData()
         );
 
-        // Initialize main burn wave
         List<BlockData> baseBurnWave = new ArrayList<>();
         addRepeated(baseBurnWave, Material.ORANGE_STAINED_GLASS, 3);
         addRepeated(baseBurnWave, Material.SHROOMLIGHT, 2);

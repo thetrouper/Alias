@@ -1,4 +1,4 @@
-package me.trouper.alias.server.systems.burning;
+package me.trouper.alias.server.systems.world.burning;
 
 import org.bukkit.block.data.BlockData;
 

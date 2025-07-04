@@ -1,6 +1,8 @@
-package me.trouper.alias.server.systems.visual;
+package me.trouper.alias.utils;
 
-import org.bukkit.*;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 

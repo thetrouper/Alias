@@ -1,6 +1,5 @@
-package me.trouper.alias.server.systems.burning;
+package me.trouper.alias.server.systems.world.burning;
 
-import me.trouper.alias.server.Main;
 import me.trouper.alias.server.systems.TaskManager;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -13,17 +12,17 @@ import java.io.Closeable;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class BlockBurner implements Closeable, Main {
+public class BlockBurner implements Closeable {
     private final BurnOptions options;
     private final BurnPalette palette;
     private final TaskManager taskManager;
     private final Set<Block> visited = new HashSet<>();
     private final Map<Block, Material> burning = new HashMap<>();
 
-    public BlockBurner(BurnOptions options) {
+    public BlockBurner(TaskManager taskManager, BurnOptions options) {
+        this.taskManager = taskManager;
         this.options = options;
         this.palette = new BurnPalette();
-        this.taskManager = new TaskManager();
     }
 
     @Override

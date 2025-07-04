@@ -1,20 +1,25 @@
 package me.trouper.alias.server.systems;
 
-import me.trouper.alias.server.Main;
+import me.trouper.alias.AliasContext;
 import org.bukkit.Bukkit;
 
 import java.io.Closeable;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
+import java.util.Map;
 
-public class TaskManager implements Closeable, Main {
+public class TaskManager implements Closeable {
+    private final AliasContext context;
     private final Map<Integer, Boolean> tasks = new HashMap<>();
     private volatile boolean closed = false;
+
+    public TaskManager(AliasContext context) {
+        this.context = context;
+    }
 
     public int scheduleTask(Runnable task, long delay) {
         if (closed) return -1;
 
-        int taskId = Bukkit.getScheduler().runTaskLater(main.getPlugin(), () -> {
+        int taskId = Bukkit.getScheduler().runTaskLater(context.getPlugin(), () -> {
             if (!closed) {
                 task.run();
             }
