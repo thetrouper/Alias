@@ -27,6 +27,17 @@ public class Common {
         this.debuggerExclusions = new HashSet<>();
     }
 
+     public void update(Common common) {
+        this.mainColor = common.getMainColor();
+        this.secondaryColor = common.getSecondaryColor();
+        this.pluginName = common.getPluginName();
+        this.flatPrefix = common.getFlatPrefix();
+        this.flat = common.isFlat();
+        this.debugMode = common.getDebugMode();
+        this.debuggerExclusions.clear();
+        this.debuggerExclusions.addAll(common.getDebuggerExclusions());
+    }
+
     public String getPackageName() {
         return packageName;
     }
@@ -91,6 +102,11 @@ public class Common {
         return this.debuggerExclusions.remove(methodName);
     }
 
+    public void setDebuggerExclusions(Set<String> debuggerExclusions) {
+        this.debuggerExclusions.clear();
+        this.debuggerExclusions.addAll(debuggerExclusions);
+    }
+
     public String getTempTag() {
         return "$/" + pluginName + "/ TEMP";
     }
@@ -98,5 +114,9 @@ public class Common {
 
     public String getUpdateURL() {
         return updateURL;
+    }
+
+    public boolean isFlat() {
+        return flat;
     }
 }

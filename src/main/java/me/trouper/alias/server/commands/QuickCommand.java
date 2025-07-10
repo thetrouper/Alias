@@ -117,4 +117,23 @@ public interface QuickCommand extends TabExecutor, ContextAware {
             command.setTabCompleter((sender, command2, label, args) -> List.of());
         }
     }
+
+    default CompletionBuilder quickDebugArgs(CompletionBuilder b, List<String> activeExclusions) {
+        return b.then(
+                b.arg("debug")
+                        .then(
+                                b.arg("toggle")
+                        )
+                        .then(
+                                b.arg("exclude")
+                                        .then(
+                                                b.arg("Class.method")))
+                        .then(
+                                b.arg("include")
+                                        .then(
+                                                b.arg(activeExclusions)
+                                        )
+                        )
+        );
+    }
 }

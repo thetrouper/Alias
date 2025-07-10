@@ -23,7 +23,6 @@ import java.util.function.Consumer;
 
 public class QuickGui implements InventoryHolder {
 
-    private static final Map<String, QuickGui> registry = new ConcurrentHashMap<>();
     private static final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private final Map<Integer, GuiAction> slotActions;
@@ -42,10 +41,16 @@ public class QuickGui implements InventoryHolder {
     private Inventory inventory;
     private final Set<Player> viewers;
 
+    private final Map<String, GuiCallback> callbacks;
+    private final Map<Player, String> waitingForInput;
+    private final Map<Player, Long> inputTimeouts;
+    private final long defaultTimeout;
+
     private QuickGui(Component title, int size, GuiAction globalAction,
                      Map<Integer, GuiAction> slotActions, Map<Integer, ItemStack> slotItems,
                      GuiCreateAction createAction, GuiCloseAction closeAction, GuiDragAction dragAction,
-                     boolean preventDrag, Sound clickSound, float soundVolume, float soundPitch) {
+                     boolean preventDrag, Sound clickSound, float soundVolume, float soundPitch,
+                     Map<String, GuiCallback> callbacks, long defaultTimeout) {
         this.title = title;
         this.size = size;
         this.globalAction = globalAction;
@@ -59,19 +64,10 @@ public class QuickGui implements InventoryHolder {
         this.soundVolume = soundVolume;
         this.soundPitch = soundPitch;
         this.viewers = ConcurrentHashMap.newKeySet();
-    }
-
-    public static QuickGui register(String id, QuickGui gui) {
-        registry.put(id, gui);
-        return gui;
-    }
-
-    public static Optional<QuickGui> getRegistered(String id) {
-        return Optional.ofNullable(registry.get(id));
-    }
-
-    public static Map<String, QuickGui> getRegistries() {
-        return new HashMap<>(registry);
+        this.callbacks = new HashMap<>(callbacks);
+        this.waitingForInput = new ConcurrentHashMap<>();
+        this.inputTimeouts = new ConcurrentHashMap<>();
+        this.defaultTimeout = defaultTimeout;
     }
 
     public static void handleClick(InventoryClickEvent event) {
@@ -133,6 +129,92 @@ public class QuickGui implements InventoryHolder {
             slotItems.remove(slot);
             slotActions.remove(slot);
             getInventory().setItem(slot, null);
+        }
+    }
+
+    public void requestInput(Player player, String callbackId) {
+        requestInput(player, callbackId, defaultTimeout);
+    }
+
+    public void requestInput(Player player, String callbackId, long timeoutMs) {
+        if (!callbacks.containsKey(callbackId)) {
+            throw new IllegalArgumentException("Callback with ID '" + callbackId + "' not found");
+        }
+
+        waitingForInput.put(player, callbackId);
+        inputTimeouts.put(player, System.currentTimeMillis() + timeoutMs);
+
+        player.closeInventory();
+    }
+
+    public boolean handleInput(Player player, String input, InputSource source) {
+        String callbackId = waitingForInput.get(player);
+        if (callbackId == null) {
+            return false;
+        }
+
+        Long timeout = inputTimeouts.get(player);
+        if (timeout != null && System.currentTimeMillis() > timeout) {
+            waitingForInput.remove(player);
+            inputTimeouts.remove(player);
+            callbacks.get(callbackId).onTimeout(this, player);
+            return false;
+        }
+
+        waitingForInput.remove(player);
+        inputTimeouts.remove(player);
+
+        GuiCallback callback = callbacks.get(callbackId);
+        if (callback != null) {
+            callback.onInput(this, player, input, source);
+            return true;
+        }
+
+        return false;
+    }
+
+    public void cancelInput(Player player) {
+        String callbackId = waitingForInput.remove(player);
+        inputTimeouts.remove(player);
+
+        if (callbackId != null) {
+            GuiCallback callback = callbacks.get(callbackId);
+            if (callback != null) {
+                callback.onCancel(this, player);
+            }
+        }
+    }
+
+    public boolean isWaitingForInput(Player player) {
+        return waitingForInput.containsKey(player);
+    }
+
+    public String getWaitingCallbackId(Player player) {
+        return waitingForInput.get(player);
+    }
+
+    public Set<Player> getPlayersWaitingForInput() {
+        return new HashSet<>(waitingForInput.keySet());
+    }
+
+    public void cleanupExpiredTimeouts() {
+        long currentTime = System.currentTimeMillis();
+        Iterator<Map.Entry<Player, Long>> iterator = inputTimeouts.entrySet().iterator();
+
+        while (iterator.hasNext()) {
+            Map.Entry<Player, Long> entry = iterator.next();
+            if (currentTime > entry.getValue()) {
+                Player player = entry.getKey();
+                String callbackId = waitingForInput.remove(player);
+                iterator.remove();
+
+                if (callbackId != null) {
+                    GuiCallback callback = callbacks.get(callbackId);
+                    if (callback != null) {
+                        callback.onTimeout(this, player);
+                    }
+                }
+            }
         }
     }
 
@@ -220,6 +302,8 @@ public class QuickGui implements InventoryHolder {
         private Sound clickSound = Sound.UI_BUTTON_CLICK;
         private float soundVolume = 0.5f;
         private float soundPitch = 1.0f;
+        private final Map<String, GuiCallback> callbacks = new HashMap<>();
+        private long defaultTimeout = 30000; // 30 seconds default
 
         public GuiBuilder title(String title) {
             this.title = Component.text(title);
@@ -288,6 +372,18 @@ public class QuickGui implements InventoryHolder {
             return this;
         }
 
+        public GuiBuilder defaultTimeout(long timeoutMs) {
+            this.defaultTimeout = timeoutMs;
+            return this;
+        }
+
+        public GuiBuilder callback(String id, GuiCallback callback) {
+            if (id != null && callback != null) {
+                this.callbacks.put(id, callback);
+            }
+            return this;
+        }
+
         public GuiBuilder item(int slot, ItemStack item) {
             return item(slot, item, null);
         }
@@ -330,12 +426,11 @@ public class QuickGui implements InventoryHolder {
             return item(slot, item, action);
         }
 
-
         public GuiBuilder fillSlots(ItemStack item, GuiAction action, int... slots) {
             for (int slot : slots) {
                 if (slot >= 0 && slot < 54 && item != null) {
-                    slotItems.put(slot,item);
-                    slotActions.put(slot,action);
+                    slotItems.put(slot, item);
+                    slotActions.put(slot, action);
                 }
             }
             return this;
@@ -382,12 +477,7 @@ public class QuickGui implements InventoryHolder {
             Component finalTitle = title != null ? title : Component.text("Untitled GUI");
             return new QuickGui(finalTitle, size, globalAction, slotActions, slotItems,
                     createAction, closeAction, dragAction, preventDrag,
-                    clickSound, soundVolume, soundPitch);
-        }
-
-        public QuickGui buildAndRegister(String id) {
-            QuickGui gui = build();
-            return register(id, gui);
+                    clickSound, soundVolume, soundPitch, callbacks, defaultTimeout);
         }
     }
 
@@ -411,50 +501,24 @@ public class QuickGui implements InventoryHolder {
         void onDrag(QuickGui gui, InventoryDragEvent event);
     }
 
-    public static class GuiUtils {
+    public interface GuiCallback {
+        void onInput(QuickGui gui, Player player, String input, InputSource source);
 
-        public static QuickGui createConfirmDialog(String title, Consumer<Boolean> callback) {
-            return create()
-                    .titleMini("<green>" + title)
-                    .rows(3)
-                    .fillBorder(Material.GRAY_STAINED_GLASS_PANE)
-                    .itemMini(11, Material.GREEN_CONCRETE, "<green><bold>CONFIRM",
-                            (gui, event) -> {
-                                callback.accept(true);
-                                event.getWhoClicked().closeInventory();
-                            })
-                    .itemMini(15, Material.RED_CONCRETE, "<red><bold>CANCEL",
-                            (gui, event) -> {
-                                callback.accept(false);
-                                event.getWhoClicked().closeInventory();
-                            })
-                    .build();
+        default void onTimeout(QuickGui gui, Player player) {
+            player.sendMessage(Component.text("Input timed out.", NamedTextColor.RED));
         }
 
-        public static GuiBuilder createPaginated(String title, List<ItemStack> items, int itemsPerPage) {
-            GuiBuilder builder = create()
-                    .titleMini(title)
-                    .rows(6)
-                    .fillBorder(Material.GRAY_STAINED_GLASS_PANE);
-
-            int totalPages = (int) Math.ceil((double) items.size() / itemsPerPage);
-
-            if (totalPages > 1) {
-                builder.itemMini(45, Material.ARROW, "<yellow>Previous Page")
-                        .itemMini(53, Material.ARROW, "<yellow>Next Page");
-            }
-
-            return builder;
+        default void onCancel(QuickGui gui, Player player) {
+            player.sendMessage(Component.text("Input cancelled.", NamedTextColor.YELLOW));
         }
+    }
 
-        public static ItemStack createSeparator(NamedTextColor color) {
-            ItemStack pane = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-            ItemMeta meta = pane.getItemMeta();
-            if (meta != null) {
-                meta.displayName(Component.text(" ").color(color));
-                pane.setItemMeta(meta);
-            }
-            return pane;
-        }
+    public enum InputSource {
+        CHAT,
+        COMMAND,
+        SIGN,
+        BOOK,
+        ANVIL,
+        CUSTOM
     }
 }

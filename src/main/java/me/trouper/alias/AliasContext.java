@@ -4,10 +4,7 @@ import me.trouper.alias.data.Common;
 import me.trouper.alias.data.DataManager;
 import me.trouper.alias.data.JsonSerializable;
 import me.trouper.alias.server.AutoRegistrar;
-import me.trouper.alias.server.events.listeners.FreezeListener;
-import me.trouper.alias.server.events.listeners.GuiListener;
-import me.trouper.alias.server.events.listeners.SpawnListener;
-import me.trouper.alias.server.events.listeners.WandListener;
+import me.trouper.alias.server.events.listeners.*;
 import me.trouper.alias.server.systems.TaskManager;
 import me.trouper.alias.server.systems.Text;
 import me.trouper.alias.server.systems.Verbose;
@@ -30,6 +27,7 @@ public class AliasContext {
     private final Verbose verbose;
     private final DisplayManager displayManager;
     private final FreezeManager freezeManager;
+    private final GuiInputListener guiInputListener;
     private boolean enabled = false;
 
     public AliasContext(JavaPlugin plugin, Common common) {
@@ -42,6 +40,7 @@ public class AliasContext {
         this.verbose = new Verbose(this);
         this.displayManager = new DisplayManager(this);
         this.freezeManager = new FreezeManager(this);
+        this.guiInputListener = new GuiInputListener(this);
     }
 
     /**
@@ -58,10 +57,11 @@ public class AliasContext {
         autoUpdater.checkUpdate();
 
         autoRegistrar.loadAll(common.getPackageName());
-        Bukkit.getPluginManager().registerEvents(new GuiListener(),getPlugin());
         Bukkit.getPluginManager().registerEvents(new SpawnListener(this),getPlugin());
         Bukkit.getPluginManager().registerEvents(new WandListener(this),getPlugin());
         Bukkit.getPluginManager().registerEvents(new FreezeListener(this),getPlugin());
+        Bukkit.getPluginManager().registerEvents(guiInputListener,getPlugin());
+        guiInputListener.startTimeoutTask();
         List<JsonSerializable<?>> copy = new ArrayList<>(autoRegistrar.getSerializables());
         for (JsonSerializable<?> serializable : copy) {
             dataManager.load(serializable.getClass());
@@ -83,9 +83,11 @@ public class AliasContext {
         autoRegistrar.getSerializables().forEach(jsonSerializable -> {
             dataManager.save(jsonSerializable.getClass());
         });
+        guiInputListener.shutdown();
         autoRegistrar.unregisterAll();
 
         autoUpdater.checkUpdate();
+
 
         enabled = false;
         plugin.getLogger().info("Alias context shutdown complete");
@@ -102,4 +104,5 @@ public class AliasContext {
     public DataManager getDataManager() { return dataManager; }
     public AutoUpdater getAutoUpdater() { return autoUpdater; }
     public FreezeManager getFreezeManager() { return freezeManager; }
+    public GuiInputListener getGuiInputListener() { return guiInputListener; }
 }

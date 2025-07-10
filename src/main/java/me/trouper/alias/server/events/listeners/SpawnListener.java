@@ -1,18 +1,21 @@
 package me.trouper.alias.server.events.listeners;
 
 import me.trouper.alias.AliasContext;
+import me.trouper.alias.server.events.custom.PlayerCreateVehicleEvent;
 import me.trouper.alias.server.events.custom.PlayerSpawnEntityEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Vehicle;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.event.vehicle.VehicleCreateEvent;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -90,6 +93,31 @@ public class SpawnListener implements Listener {
         Bukkit.getPluginManager().callEvent(pse);
         if (pse.isCancelled()) {
             e.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onVehicleCreate(VehicleCreateEvent e) {
+        Vehicle vehicle = e.getVehicle();
+
+        Location loc = vehicle.getLocation();
+        long now = System.currentTimeMillis();
+        Player creator = null;
+
+        for (Placed p : recentBlocks) {
+            if (p.time > now - 2000 && p.loc.getWorld().equals(loc.getWorld())
+                    && p.loc.distanceSquared(loc) < 4) {
+                creator = Bukkit.getPlayer(p.playerId);
+                break;
+            }
+        }
+
+        if (creator == null) return;
+
+        PlayerCreateVehicleEvent customEvent = new PlayerCreateVehicleEvent(creator, vehicle);
+        Bukkit.getPluginManager().callEvent(customEvent);
+        if (customEvent.isCancelled()) {
+            vehicle.remove();
         }
     }
 

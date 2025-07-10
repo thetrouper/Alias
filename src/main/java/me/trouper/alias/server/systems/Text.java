@@ -1,6 +1,7 @@
 package me.trouper.alias.server.systems;
 
 import me.trouper.alias.AliasContext;
+import me.trouper.alias.utils.FormatUtils;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.ComponentLike;
@@ -23,6 +24,7 @@ public class Text {
     public Text(AliasContext context) {
         this.context = context;
     }
+
     /**
      * Messages an audience applying pallet formatting to the text and placeholders. Placeholders are zero-indexed and curly braced. {0}, {1}, {2}...
      * Supports both flat messages and fancy wrapped messages based on Alias configuration.
@@ -30,7 +32,7 @@ public class Text {
      * @param playSound If the pallet's sound should be played.
      * @param audience Any audience.
      * @param text The message to format
-     * @param args Qualified placeholders to color.
+     * @param args Qualified placeholders to color. Will format enums and components properly.
      */
     public void messageAny(Pallet pallet, boolean playSound, Audience audience, String text, Object... args) {
         message(
@@ -39,7 +41,16 @@ public class Text {
                 audience,
                 color(text),
                 Arrays.stream(args)
-                        .map(object -> object instanceof ComponentLike ? (ComponentLike) object : Component.text(String.valueOf(object)))
+                        .map(object -> {
+                            if (object instanceof ComponentLike) {
+                                return (ComponentLike) object;
+                            } else if (object instanceof Enum<?>) {
+                                String formatted = FormatUtils.formatEnum((Enum<?>) object);
+                                return Component.text(formatted);
+                            } else {
+                                return Component.text(String.valueOf(object));
+                            }
+                        })
                         .toArray(ComponentLike[]::new)
         );
     }
@@ -50,7 +61,7 @@ public class Text {
      * @param pallet The colors to use for text and arguments.
      * @param audience Any audience.
      * @param text The message to format
-     * @param args Qualified placeholders to color.
+     * @param args Qualified placeholders to color. Will format enums and components properly.
      */
     public void messageAny(Pallet pallet, Audience audience, String text, Object... args) {
         messageAny(pallet,true,audience,text,args);
@@ -97,7 +108,16 @@ public class Text {
                 pallet,
                 color(text),
                 Arrays.stream(args)
-                        .map(object -> object instanceof ComponentLike ? (ComponentLike) object : Component.text(String.valueOf(object)))
+                        .map(object -> {
+                            if (object instanceof ComponentLike) {
+                                return (ComponentLike) object;
+                            } else if (object instanceof Enum<?>) {
+                                String formatted = FormatUtils.formatEnum((Enum<?>) object);
+                                return Component.text(formatted);
+                            } else {
+                                return Component.text(String.valueOf(object));
+                            }
+                        })
                         .toArray(ComponentLike[]::new)
         );
     }

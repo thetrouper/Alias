@@ -18,10 +18,7 @@ import org.bukkit.profile.PlayerTextures;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Function;
 
 public class ItemBuilder {
@@ -336,4 +333,60 @@ public class ItemBuilder {
         return create(Material.PLAYER_HEAD)
                 .skullTexture(url);
     }
+
+    public static ItemStack integerItem(Material mat, String nameMm, List<String> descMm, int value) {
+        return ItemBuilder.of(mat)
+                .displayName(nameMm)
+                .loreMiniMessage(descMm)
+                .loreMiniMessage("<dark_green><bold>Current Value</bold><white>: <gray>" + value)
+                .build();
+    }
+
+    public static ItemStack booleanItem(Material mat, String nameMm, List<String> descMm, boolean value) {
+        String state = value ? "<green>ON" : "<red>OFF";
+        return ItemBuilder.of(mat)
+                .displayName(nameMm)
+                .loreMiniMessage(descMm)
+                .loreMiniMessage("<dark_gray>State: " + state)
+                .build();
+    }
+
+    public static ItemStack stringItem(Material mat, String nameMm, List<String> descMm, String value) {
+        ItemBuilder b = ItemBuilder.of(mat)
+                .displayName(nameMm)
+                .loreMiniMessage(descMm);
+        b.loreMiniMessage("<dark_gray>Text: <white>" + b.miniMessage.escapeTags(value));
+        return b.build();
+    }
+
+    public static ItemStack doubleItem(Material mat, String nameMm, List<String> descMm, double value) {
+        return ItemBuilder.of(mat)
+                .displayName(nameMm)
+                .loreMiniMessage(descMm)
+                .loreMiniMessage("<dark_gray>Value: <white>" + value)
+                .build();
+    }
+
+    public static ItemStack listItem(Material mat, String nameMm, List<String> descMm, List<String> values) {
+        ItemBuilder b = ItemBuilder.of(mat)
+                .displayName(nameMm)
+                .loreMiniMessage(descMm)
+                .loreMiniMessage("<dark_gray>List:");
+        for (String entry : values) {
+            b.loreMiniMessage("  <white>- " + b.miniMessage.escapeTags(entry));
+        }
+        return b.build();
+    }
+
+    public static ItemStack mapItem(Material mat, String nameMm, List<String> descMm, Map<String, String> map) {
+        ItemBuilder b = ItemBuilder.of(mat)
+                .displayName(nameMm)
+                .loreMiniMessage(descMm)
+                .loreMiniMessage("<dark_gray>Entries:");
+        for (Map.Entry<String, String> e : map.entrySet()) {
+            b.loreMiniMessage("  <white>" + b.miniMessage.escapeTags(e.getKey()) + ": <gray>" + b.miniMessage.escapeTags(e.getValue()));
+        }
+        return b.build();
+    }
+
 }
