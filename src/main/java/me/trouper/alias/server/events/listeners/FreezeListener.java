@@ -22,6 +22,13 @@ public class FreezeListener implements Listener {
     }
 
     @EventHandler
+    public void onQuit(PlayerQuitEvent e) {
+        OfflinePlayer p = e.getPlayer();
+        FreezeSession freeze = context.getFreezeManager().getSession(p.getUniqueId());
+        if (freeze != null) freeze.handleQuit(p);
+    }
+
+    @EventHandler
     public void onMove(PlayerMoveEvent e) {
         Player p = e.getPlayer();
         FreezeSession freeze = context.getFreezeManager().getSession(p.getUniqueId());
@@ -70,12 +77,5 @@ public class FreezeListener implements Listener {
         if (freeze == null) return;
         if (!freeze.canDmg()) e.setCancelled(true);
         freeze.handleDamage(p);
-    }
-
-    @EventHandler
-    public void onQuit(PlayerQuitEvent e) {
-        OfflinePlayer p = e.getPlayer();
-        FreezeSession freeze = context.getFreezeManager().getSession(p.getUniqueId());
-        if (freeze != null) freeze.handleQuit(p);
     }
 }

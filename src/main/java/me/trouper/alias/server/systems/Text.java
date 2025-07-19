@@ -409,6 +409,25 @@ public class Text {
         return Component.text(plainText);
     }
 
+    public Component createProgressBar(double progress, char barChar, int barLength, TextColor completeColor, TextColor incompleteColor) {
+        int completeLength = (int) Math.round(progress * barLength);
+        int incompleteLength = barLength - completeLength;
+
+        TextComponent.Builder builder = Component.text();
+
+        if (completeLength > 0) {
+            builder.append(Component.text(String.valueOf(barChar).repeat(completeLength))
+                    .color(completeColor));
+        }
+
+        if (incompleteLength > 0) {
+            builder.append(Component.text(String.valueOf(barChar).repeat(incompleteLength))
+                    .color(incompleteColor));
+        }
+
+        return builder.build();
+    }
+
     /**
      * Gets the appropriate argument color based on the argument index.
      * @param pallet The color pallet
