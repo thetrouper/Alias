@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'me.trouper'
-version = '1.0-1.21.1-SNAPSHOT'
+version = '1.0-1.21.5-SNAPSHOT'
 
 repositories {
     mavenCentral()
@@ -19,7 +19,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT")
 }
 
 def targetJavaVersion = 21
@@ -60,4 +60,4 @@ publishing {
         mavenLocal()
     }
 }
-
+    

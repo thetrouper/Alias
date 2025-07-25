@@ -3,7 +3,7 @@ package me.trouper.alias.data.enums;
 import org.bukkit.Material;
 import org.bukkit.inventory.meta.trim.TrimPattern;
 
-public enum ValidPattern {
+public enum ValidTrimPattern {
     BOLT(TrimPattern.BOLT, Material.BOLT_ARMOR_TRIM_SMITHING_TEMPLATE),
     COAST(TrimPattern.COAST, Material.COAST_ARMOR_TRIM_SMITHING_TEMPLATE),
     DUNE(TrimPattern.DUNE, Material.DUNE_ARMOR_TRIM_SMITHING_TEMPLATE),
@@ -26,7 +26,7 @@ public enum ValidPattern {
     private final TrimPattern canonical;
     private final Material material;
 
-    ValidPattern(TrimPattern canonical, Material material) {
+    ValidTrimPattern(TrimPattern canonical, Material material) {
         this.canonical = canonical;
         this.material = material;
     }
@@ -39,8 +39,8 @@ public enum ValidPattern {
         return canonical;
     }
 
-    public static ValidPattern validate(TrimPattern pattern) {
-        for (ValidPattern value : ValidPattern.values()) {
+    public static ValidTrimPattern validate(TrimPattern pattern) {
+        for (ValidTrimPattern value : ValidTrimPattern.values()) {
             if (!value.getCanonical().equals(pattern)) continue;
             return value;
         }
@@ -49,6 +49,6 @@ public enum ValidPattern {
 
     public static TrimPattern validate(String name) {
         name = name.toUpperCase();
-        return ValidPattern.valueOf(name).getCanonical();
+        return ValidTrimPattern.valueOf(name).getCanonical();
     }
 }

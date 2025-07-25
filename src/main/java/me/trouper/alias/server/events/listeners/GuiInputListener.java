@@ -150,16 +150,24 @@ public class GuiInputListener implements Listener {
         waitingPlayers.clear();
     }
 
-    public static void sendInputInstructions(Player player, String prompt) {
+    public void sendInputInstructions(Player player, String prompt) {
         sendInputInstructions(player, prompt, true);
     }
 
-    public static void sendInputInstructions(Player player, String prompt, boolean showCancelOption) {
+    public void sendInputInstructions(Player player, String prompt, boolean showCancelOption) {
         player.sendMessage(Component.text("").append(Component.text("▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", NamedTextColor.GRAY)));
         player.sendMessage(MiniMessage.miniMessage().deserialize(prompt));
         if (showCancelOption) {
             player.sendMessage(Component.text("Type '/cancel' to cancel input.", NamedTextColor.GRAY));
         }
         player.sendMessage(Component.text("▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", NamedTextColor.GRAY));
+    }
+
+    public void requestChatInput(QuickGui gui, Player player, String callbackId, String prompt) {
+        registerWaitingPlayer(player, gui);
+
+        gui.requestInput(player, callbackId);
+
+        sendInputInstructions(player, prompt);
     }
 }
