@@ -12,7 +12,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 
 public class AutoRegistrar {
@@ -89,4 +91,20 @@ public class AutoRegistrar {
     public List<QuickListener> getQuickListeners() { return quickListeners; }
     public List<AbstractWand> getWands() { return wands; }
     public List<JsonSerializable<?>> getSerializables() { return serializables; }
+
+    public <T extends QuickListener> T getQuickListener(Class<T> clazz) {
+        return quickListeners.stream()
+                .filter(clazz::isInstance)
+                .map(clazz::cast)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public <T extends QuickCommand> T getQuickCommand(Class<T> clazz) {
+        return quickCommands.stream()
+                .filter(clazz::isInstance)
+                .map(clazz::cast)
+                .findFirst()
+                .orElseThrow();
+    }
 }
